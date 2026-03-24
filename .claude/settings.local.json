@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(flutter --version)",
+      "Bash(flutter devices:*)",
+      "Bash(flutter run:*)",
+      "Bash(flutter create:*)",
+      "Bash(find /c/Users/leone -path *sqflite_common_ffi_web* -name *.dart)",
+      "Bash(dart run:*)",
+      "Bash(head -5 find /c/Users/leone -name *.worker.js -path *sqflite*)",
+      "Bash(dart pub:*)",
+      "Bash(export PATH=\"$PATH:/c/Users/leone/AppData/Local/Pub/Cache/bin\")",
+      "Bash(npm --version)",
+      "Bash(flutter analyze:*)",
+      "Bash(xargs cat:*)",
+      "Bash(\"C:/Users/leone/AppData/Local/Pub/Cache/bin/webdev.bat\" version:*)",
+      "Bash(\"C:/Users/leone/AppData/Local/Pub/Cache/bin/webdev.bat\" build:*)",
+      "Bash(PATH=\"$PATH:C:/src/flutter/bin\" dart run sqflite_common_ffi_web:setup --force)",
+      "Bash(flutter pub:*)",
+      "Bash(python3 -c \"import hashlib; print\\(hashlib.sha256\\(''Jornada@2025''.encode\\(\\)\\).hexdigest\\(\\)\\)\")",
+      "Bash(powershell -Command \"[System.BitConverter]::ToString\\([System.Security.Cryptography.SHA256]::Create\\(\\).ComputeHash\\([System.Text.Encoding]::UTF8.GetBytes\\(''Jornada@2025''\\)\\)\\).Replace\\(''-'',''''\\).ToLower\\(\\)\")",
+      "Bash(flutter doctor:*)",
+      "Bash(gh auth:*)",
+      "Bash(git config:*)",
+      "Bash(git init:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
+    ]
+  }
+}
