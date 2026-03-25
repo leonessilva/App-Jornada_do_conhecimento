@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../core/theme/app_theme.dart';
+import 'package:sqflite/sqflite.dart';
+import '../../data/database/database_helper.dart';
 import '../../core/utils/csv_exporter.dart';
 import '../../data/repositories/admin_repository.dart';
+import '../../data/repositories/researcher_repository.dart';
 import '../../data/models/participant.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
@@ -14,8 +18,13 @@ class AdminDashboardScreen extends StatefulWidget {
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   final _repo = AdminRepository();
+  final _researcherRepo = ResearcherRepository();
   List<ParticipantStats> _all = [];
+  List<Researcher> _pending = [];
   bool _loading = true;
+  bool _syncing = false;
+  int? _cloudTotal;
+  String _role = 'master';
 
   String? _filterSexo;
   String? _filterMunicipio;
@@ -23,6 +32,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args is Map && args['role'] == 'researcher') {
+        setState(() => _role = 'researcher');
+      }
+    });
     _load();
   }
 
@@ -43,7 +58,61 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
     final data = await _repo.getAllStats();
-    if (mounted) setState(() { _all = data; _loading = false; });
+    final pending = await _researcherRepo.getPending();
+    if (mounted) setState(() { _all = data; _pending = pending; _loading = false; });
+    _fetchCloudCount();
+  }
+
+  Future<void> _fetchCloudCount() async {
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('participantes')
+          .count()
+          .get();
+      if (mounted) setState(() => _cloudTotal = snap.count ?? 0);
+    } catch (_) {}
+  }
+
+  Future<void> _syncFromCloud() async {
+    setState(() => _syncing = true);
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('participantes')
+          .get();
+      final db = await DatabaseHelper.instance.database;
+      for (final doc in snap.docs) {
+        final data = doc.data();
+        await db.insert(
+          'participants',
+          {
+            'id': doc.id,
+            'nome': data['nome'] ?? '',
+            'cpf': data['cpf'] ?? '',
+            'sexo': data['sexo'] ?? '',
+            'genero': data['genero'] ?? '',
+            'gestante': data['gestante'],
+            'idade_faixa': data['idade_faixa'] ?? '',
+            'comunidade': data['comunidade'] ?? '',
+            'municipio': data['municipio'] ?? '',
+            'estado': data['estado'] ?? '',
+            'escolaridade': data['escolaridade'] ?? '',
+            'synced': 1,
+            'created_at': data['created_at'] ?? 0,
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+      await _load();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao sincronizar: $e'),
+              backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _syncing = false);
+    }
   }
 
   List<ParticipantStats> get _filtered {
@@ -70,8 +139,40 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white),
-            tooltip: 'Atualizar',
+            tooltip: 'Atualizar local',
             onPressed: _load,
+          ),
+          IconButton(
+            icon: _syncing
+                ? const SizedBox(
+                    width: 20, height: 20,
+                    child: CircularProgressIndicator(
+                        color: Colors.white, strokeWidth: 2))
+                : Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      const Icon(Icons.cloud_sync_rounded, color: Colors.white),
+                      if (_cloudTotal != null)
+                        Positioned(
+                          right: -4, top: -4,
+                          child: Container(
+                            padding: const EdgeInsets.all(2),
+                            constraints: const BoxConstraints(minWidth: 16),
+                            decoration: BoxDecoration(
+                              color: Colors.amber,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text('$_cloudTotal',
+                                style: const TextStyle(
+                                    fontSize: 9, color: Colors.black,
+                                    fontWeight: FontWeight.w800),
+                                textAlign: TextAlign.center),
+                          ),
+                        ),
+                    ],
+                  ),
+            tooltip: 'Sincronizar da nuvem',
+            onPressed: _syncing ? null : _syncFromCloud,
           ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.download_rounded, color: Colors.white),
@@ -134,6 +235,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       _sectionTitle('Evolução — Gestantes'),
                       const SizedBox(height: 12),
                       _dumbellChart(_groupBy((p) => p.gestante != null ? 'Grávida: ${p.gestante}' : 'Não se aplica')),
+                      const SizedBox(height: 20),
+                    ],
+                    if (_role == 'master' && _pending.isNotEmpty) ...[
+                      _sectionTitle('Solicitações de Acesso (${_pending.length})'),
+                      const SizedBox(height: 12),
+                      _pendingRequests(),
                       const SizedBox(height: 20),
                     ],
                     _sectionTitle('Participantes (${_filtered.length})'),
@@ -634,6 +741,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               DataColumn(label: Text('Sexo')),
               DataColumn(label: Text('Faixa')),
               DataColumn(label: Text('Município')),
+              DataColumn(label: Text('UF')),
               DataColumn(label: Text('Pré')),
               DataColumn(label: Text('Pós')),
               DataColumn(label: Text('Ganho')),
@@ -659,6 +767,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       style: const TextStyle(fontSize: 12))),
                   DataCell(Text(p.municipio,
                       style: const TextStyle(fontSize: 12))),
+                  DataCell(Text(p.estado.isEmpty ? '—' : p.estado,
+                      style: const TextStyle(
+                          fontSize: 12, fontWeight: FontWeight.w600))),
                   DataCell(_scoreChip(s.pctPre, AppTheme.primary)),
                   DataCell(_scoreChip(s.pctPos, const Color(0xFF27AE60))),
                   DataCell(ganho == null
@@ -679,6 +790,96 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _pendingRequests() {
+    return Column(
+      children: _pending.map((r) {
+        return Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFF39C12), width: 1.5),
+            boxShadow: [
+              BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2)),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.person_outline,
+                      color: AppTheme.primary, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(r.name,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w700, fontSize: 14)),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEF5E7),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Text('Pendente',
+                        style: TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFFE67E22),
+                            fontWeight: FontWeight.w700)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(r.institution,
+                  style: const TextStyle(
+                      fontSize: 12, color: AppTheme.textMedium)),
+              const SizedBox(height: 4),
+              Text(r.justification,
+                  style: const TextStyle(fontSize: 12, height: 1.4)),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        await _researcherRepo.reject(r.id);
+                        _load();
+                      },
+                      icon: const Icon(Icons.close, size: 16),
+                      label: const Text('Rejeitar'),
+                      style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.red,
+                          side: const BorderSide(color: Colors.red)),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                        await _researcherRepo.approve(r.id);
+                        _load();
+                      },
+                      icon: const Icon(Icons.check, size: 16),
+                      label: const Text('Aprovar'),
+                      style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primary),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      }).toList(),
     );
   }
 

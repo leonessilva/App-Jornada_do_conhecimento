@@ -63,12 +63,11 @@ class QuestionWidget extends StatelessWidget {
           ),
           const SizedBox(width: 6),
           Text(
-            question.bloco.toUpperCase(),
+            question.bloco,
             style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
               color: palette.text,
-              letterSpacing: 0.6,
             ),
           ),
         ],

@@ -2,12 +2,13 @@ class Participant {
   final String id;
   final String nome;
   final String cpf;
-  final String sexo;      // sexo biológico
-  final String genero;    // identidade de gênero
-  final String? gestante; // só preenchido se sexo == 'Feminino'
+  final String sexo;
+  final String genero;
+  final String? gestante;
   final String idadeFaixa;
   final String comunidade;
   final String municipio;
+  final String estado;
   final String escolaridade;
   final DateTime createdAt;
 
@@ -21,6 +22,7 @@ class Participant {
     required this.idadeFaixa,
     required this.comunidade,
     required this.municipio,
+    required this.estado,
     required this.escolaridade,
     required this.createdAt,
   });
@@ -35,6 +37,7 @@ class Participant {
         'idade_faixa': idadeFaixa,
         'comunidade': comunidade,
         'municipio': municipio,
+        'estado': estado,
         'escolaridade': escolaridade,
         'created_at': createdAt.millisecondsSinceEpoch,
       };
@@ -48,10 +51,11 @@ class Participant {
         gestante: (map['gestante'] as String?)?.isEmpty == true
             ? null
             : map['gestante'] as String?,
-        idadeFaixa: map['idade_faixa'],
-        comunidade: map['comunidade'],
-        municipio: map['municipio'],
-        escolaridade: map['escolaridade'],
+        idadeFaixa: map['idade_faixa'] ?? '',
+        comunidade: map['comunidade'] ?? '',
+        municipio: map['municipio'] ?? '',
+        estado: map['estado'] ?? '',
+        escolaridade: map['escolaridade'] ?? '',
         createdAt: DateTime.fromMillisecondsSinceEpoch(map['created_at']),
       );
 }

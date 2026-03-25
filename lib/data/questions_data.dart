@@ -11,7 +11,7 @@ const List<Question> kQuestions = [
   // ─── BLOCO II: Práticas de Trabalho ─────────────────────────
   Question(
     id: 'Q01',
-    bloco: 'Bloco II — Práticas de Trabalho',
+    bloco: 'Suas práticas no campo',
     ordem: 1,
     tipo: QuestionType.unica,
     texto: 'Com que frequência você aplica agrotóxicos na sua lavoura?',
@@ -26,7 +26,7 @@ const List<Question> kQuestions = [
   ),
   Question(
     id: 'Q02',
-    bloco: 'Bloco II — Práticas de Trabalho',
+    bloco: 'Suas práticas no campo',
     ordem: 2,
     tipo: QuestionType.unica,
     texto: 'Você lê o rótulo do agrotóxico antes de usar?',
@@ -40,7 +40,7 @@ const List<Question> kQuestions = [
   ),
   Question(
     id: 'Q03',
-    bloco: 'Bloco II — Práticas de Trabalho',
+    bloco: 'Suas práticas no campo',
     ordem: 3,
     tipo: QuestionType.unica,
     texto: 'Você usa Equipamento de Proteção Individual (EPI) ao aplicar agrotóxicos?',
@@ -54,7 +54,7 @@ const List<Question> kQuestions = [
   ),
   Question(
     id: 'Q04',
-    bloco: 'Bloco II — Práticas de Trabalho',
+    bloco: 'Suas práticas no campo',
     ordem: 4,
     tipo: QuestionType.unica,
     texto: 'Como você descarta as embalagens vazias de agrotóxico?',
@@ -69,10 +69,10 @@ const List<Question> kQuestions = [
   ),
   Question(
     id: 'Q05',
-    bloco: 'Bloco II — Práticas de Trabalho',
+    bloco: 'Suas práticas no campo',
     ordem: 5,
     tipo: QuestionType.unica,
-    texto: 'Você realiza a tríplice lavagem das embalagens antes de descartar?',
+    texto: 'Você lava a embalagem vazia 3 vezes com água antes de descartar? (chamada tríplice lavagem)',
     opcoes: [
       'Sim, sempre faço',
       'Às vezes faço',
@@ -83,7 +83,7 @@ const List<Question> kQuestions = [
   ),
   Question(
     id: 'Q06',
-    bloco: 'Bloco II — Práticas de Trabalho',
+    bloco: 'Suas práticas no campo',
     ordem: 6,
     tipo: QuestionType.unica,
     texto: 'Você mistura diferentes agrotóxicos sem orientação de um técnico?',
@@ -96,7 +96,7 @@ const List<Question> kQuestions = [
   ),
   Question(
     id: 'Q07',
-    bloco: 'Bloco II — Práticas de Trabalho',
+    bloco: 'Suas práticas no campo',
     ordem: 7,
     tipo: QuestionType.unica,
     texto: 'Você respeita o período de carência indicado no rótulo antes de colher?',
@@ -112,7 +112,7 @@ const List<Question> kQuestions = [
   // ─── BLOCO III: Saúde e Agrotóxicos ─────────────────────────
   Question(
     id: 'Q08',
-    bloco: 'Bloco III — Saúde e Agrotóxicos',
+    bloco: 'Saúde e agrotóxicos',
     ordem: 8,
     tipo: QuestionType.unica,
     texto: 'Você já sentiu mal-estar (enjoo, tontura, dor de cabeça) após usar agrotóxicos?',
@@ -125,7 +125,7 @@ const List<Question> kQuestions = [
   ),
   Question(
     id: 'Q09',
-    bloco: 'Bloco III — Saúde e Agrotóxicos',
+    bloco: 'Saúde e agrotóxicos',
     ordem: 9,
     tipo: QuestionType.unica,
     texto: 'Ao sentir sintomas após usar agrotóxico, o que você costuma fazer?',
@@ -139,7 +139,7 @@ const List<Question> kQuestions = [
   ),
   Question(
     id: 'Q10',
-    bloco: 'Bloco III — Saúde e Agrotóxicos',
+    bloco: 'Saúde e agrotóxicos',
     ordem: 10,
     tipo: QuestionType.unica,
     texto: 'Crianças ou mulheres grávidas ficam próximas durante a aplicação de agrotóxicos?',
@@ -152,7 +152,7 @@ const List<Question> kQuestions = [
   ),
   Question(
     id: 'Q11',
-    bloco: 'Bloco III — Saúde e Agrotóxicos',
+    bloco: 'Saúde e agrotóxicos',
     ordem: 11,
     tipo: QuestionType.unica,
     texto: 'Você conhece os sintomas de uma intoxicação aguda por agrotóxico?',
@@ -165,7 +165,7 @@ const List<Question> kQuestions = [
   ),
   Question(
     id: 'Q12',
-    bloco: 'Bloco III — Saúde e Agrotóxicos',
+    bloco: 'Saúde e agrotóxicos',
     ordem: 12,
     tipo: QuestionType.unica,
     texto: 'Você lava separadamente as roupas usadas na aplicação de agrotóxicos?',
@@ -178,7 +178,7 @@ const List<Question> kQuestions = [
   ),
   Question(
     id: 'Q13',
-    bloco: 'Bloco III — Saúde e Agrotóxicos',
+    bloco: 'Saúde e agrotóxicos',
     ordem: 13,
     tipo: QuestionType.unica,
     texto: 'Você já procurou atendimento médico por suspeita de intoxicação por agrotóxico?',
@@ -193,7 +193,7 @@ const List<Question> kQuestions = [
   // ─── BLOCO IV: Percepção Ecológica ───────────────────────────
   Question(
     id: 'Q14',
-    bloco: 'Bloco IV — Percepção Ecológica',
+    bloco: 'Meio ambiente',
     ordem: 14,
     tipo: QuestionType.unica,
     texto: 'Os agrotóxicos podem contaminar as águas de rios e lagos próximos?',
@@ -207,7 +207,7 @@ const List<Question> kQuestions = [
   ),
   Question(
     id: 'Q15',
-    bloco: 'Bloco IV — Percepção Ecológica',
+    bloco: 'Meio ambiente',
     ordem: 15,
     tipo: QuestionType.unica,
     texto: 'O uso de agrotóxicos prejudica animais silvestres, insetos e plantas nativas?',
@@ -221,7 +221,7 @@ const List<Question> kQuestions = [
   ),
   Question(
     id: 'Q16',
-    bloco: 'Bloco IV — Percepção Ecológica',
+    bloco: 'Meio ambiente',
     ordem: 16,
     tipo: QuestionType.unica,
     texto: 'Você já observou algum impacto ambiental causado por agrotóxico (peixes mortos, etc.)?',
@@ -234,7 +234,7 @@ const List<Question> kQuestions = [
   ),
   Question(
     id: 'Q17',
-    bloco: 'Bloco IV — Percepção Ecológica',
+    bloco: 'Meio ambiente',
     ordem: 17,
     tipo: QuestionType.unica,
     texto: 'Existem alternativas ao uso de agrotóxicos para controlar pragas na lavoura?',
@@ -250,7 +250,7 @@ const List<Question> kQuestions = [
   // ─── BLOCO V: Percepção de Risco ─────────────────────────────
   Question(
     id: 'Q18',
-    bloco: 'Bloco V — Percepção de Risco',
+    bloco: 'Riscos do agrotóxico',
     ordem: 18,
     tipo: QuestionType.unica,
     texto: 'Você considera que o uso de agrotóxicos representa um risco à sua saúde?',
@@ -264,7 +264,7 @@ const List<Question> kQuestions = [
   ),
   Question(
     id: 'Q19',
-    bloco: 'Bloco V — Percepção de Risco',
+    bloco: 'Riscos do agrotóxico',
     ordem: 19,
     tipo: QuestionType.unica,
     texto: 'Você já recebeu treinamento sobre uso seguro de agrotóxicos?',
@@ -277,7 +277,7 @@ const List<Question> kQuestions = [
   ),
   Question(
     id: 'Q20',
-    bloco: 'Bloco V — Percepção de Risco',
+    bloco: 'Riscos do agrotóxico',
     ordem: 20,
     tipo: QuestionType.unica,
     texto: 'O uso correto do EPI elimina completamente todos os riscos dos agrotóxicos?',

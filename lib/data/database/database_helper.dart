@@ -24,7 +24,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 3,
+      version: 5,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -38,6 +38,24 @@ class DatabaseHelper {
     if (oldVersion < 3) {
       await db.execute("ALTER TABLE participants ADD COLUMN genero TEXT NOT NULL DEFAULT ''");
       await db.execute("ALTER TABLE participants ADD COLUMN gestante TEXT NOT NULL DEFAULT ''");
+    }
+    if (oldVersion < 4) {
+      await db.execute("ALTER TABLE participants ADD COLUMN estado TEXT NOT NULL DEFAULT ''");
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS researchers (
+          id TEXT PRIMARY KEY,
+          cpf TEXT NOT NULL UNIQUE,
+          name TEXT NOT NULL,
+          institution TEXT NOT NULL DEFAULT '',
+          justification TEXT NOT NULL DEFAULT '',
+          password_hash TEXT NOT NULL DEFAULT '',
+          approved INTEGER NOT NULL DEFAULT 0,
+          created_at INTEGER NOT NULL
+        )
+      ''');
+    }
+    if (oldVersion < 5) {
+      await db.execute("ALTER TABLE participants ADD COLUMN synced INTEGER NOT NULL DEFAULT 0");
     }
   }
 
@@ -53,7 +71,9 @@ class DatabaseHelper {
         idade_faixa TEXT NOT NULL,
         comunidade TEXT NOT NULL,
         municipio TEXT NOT NULL,
+        estado TEXT NOT NULL DEFAULT '',
         escolaridade TEXT NOT NULL,
+        synced INTEGER NOT NULL DEFAULT 0,
         created_at INTEGER NOT NULL
       )
     ''');
@@ -87,5 +107,35 @@ class DatabaseHelper {
         updated_at INTEGER NOT NULL
       )
     ''');
+
+    await db.execute('''
+      CREATE TABLE researchers (
+        id TEXT PRIMARY KEY,
+        cpf TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL,
+        institution TEXT NOT NULL DEFAULT '',
+        justification TEXT NOT NULL DEFAULT '',
+        password_hash TEXT NOT NULL DEFAULT '',
+        approved INTEGER NOT NULL DEFAULT 0,
+        created_at INTEGER NOT NULL
+      )
+    ''');
+  }
+
+  // ─── Sync helpers ────────────────────────────────────────────────────────
+
+  Future<List<Map<String, dynamic>>> getPendentesSync() async {
+    final db = await database;
+    return db.query('participants', where: 'synced = ?', whereArgs: [0]);
+  }
+
+  Future<void> marcarSincronizado(String id) async {
+    final db = await database;
+    await db.update(
+      'participants',
+      {'synced': 1},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 }

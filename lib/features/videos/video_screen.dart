@@ -1,39 +1,38 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/app_provider.dart';
 
-/// Vídeos educativos sobre uso seguro de agrotóxicos.
-/// Substitua os links abaixo pelos vídeos reais da pesquisa.
 const _videos = [
   _Video(
     titulo: 'O que são agrotóxicos e seus riscos à saúde',
     descricao: 'Entenda os tipos de agrotóxicos, como agem no corpo humano e os principais riscos para quem trabalha no campo.',
-    duracao: '8 min',
+    duracao: 8,
     icone: Icons.science_outlined,
   ),
   _Video(
     titulo: 'Equipamentos de Proteção Individual (EPI)',
     descricao: 'Como usar corretamente máscara, luvas, botas e roupas de proteção durante a aplicação de agrotóxicos.',
-    duracao: '6 min',
+    duracao: 6,
     icone: Icons.security_outlined,
   ),
   _Video(
     titulo: 'Boas práticas no manuseio e aplicação',
     descricao: 'Cuidados antes, durante e após a aplicação: mistura, direção do vento, horário e descarte de embalagens.',
-    duracao: '10 min',
+    duracao: 10,
     icone: Icons.agriculture_outlined,
   ),
   _Video(
     titulo: 'Impactos ambientais e no Rio',
     descricao: 'Como os agrotóxicos afetam a água, o solo, os peixes e a saúde da comunidade ribeirinha.',
-    duracao: '7 min',
+    duracao: 7,
     icone: Icons.water_outlined,
   ),
   _Video(
     titulo: 'O que fazer em caso de intoxicação',
     descricao: 'Reconheça os sintomas de intoxicação e saiba como agir rapidamente para proteger você e sua família.',
-    duracao: '5 min',
+    duracao: 5,
     icone: Icons.local_hospital_outlined,
   ),
 ];
@@ -47,6 +46,7 @@ class VideoScreen extends StatefulWidget {
 
 class _VideoScreenState extends State<VideoScreen> {
   final Set<int> _assistidos = {};
+  int? _expanded; // índice do card expandido
 
   @override
   Widget build(BuildContext context) {
@@ -64,7 +64,6 @@ class _VideoScreenState extends State<VideoScreen> {
         child: SafeArea(
           child: Column(
             children: [
-              // Cabeçalho
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
                 child: Column(
@@ -72,49 +71,36 @@ class _VideoScreenState extends State<VideoScreen> {
                   children: [
                     const Row(
                       children: [
-                        Icon(Icons.play_lesson_rounded,
-                            color: Colors.white70, size: 20),
+                        Icon(Icons.play_lesson_rounded, color: Colors.white70, size: 20),
                         SizedBox(width: 8),
-                        Text(
-                          'Conteúdo Educativo',
-                          style: TextStyle(
-                              color: Colors.white70, fontSize: 13),
-                        ),
+                        Text('Conteúdo Educativo',
+                            style: TextStyle(color: Colors.white70, fontSize: 13)),
                       ],
                     ),
                     const SizedBox(height: 6),
                     const Text(
                       'Vídeos sobre Agrotóxicos',
                       style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w900,
-                      ),
+                          color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900),
                     ),
                     const SizedBox(height: 8),
-                    // Barra de progresso de vídeos
                     ClipRRect(
                       borderRadius: BorderRadius.circular(4),
                       child: LinearProgressIndicator(
-                        value: _videos.isEmpty
-                            ? 0
-                            : _assistidos.length / _videos.length,
+                        value: _videos.isEmpty ? 0 : _assistidos.length / _videos.length,
                         backgroundColor: Colors.white24,
-                        valueColor:
-                            const AlwaysStoppedAnimation<Color>(Colors.white),
+                        valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
                         minHeight: 5,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       '${_assistidos.length} de ${_videos.length} assistidos',
-                      style: const TextStyle(
-                          color: Colors.white60, fontSize: 11),
+                      style: const TextStyle(color: Colors.white60, fontSize: 11),
                     ),
                   ],
                 ),
               ),
-              // Lista de vídeos
               Expanded(
                 child: ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -122,7 +108,6 @@ class _VideoScreenState extends State<VideoScreen> {
                   itemBuilder: (ctx, i) => _videoCard(i),
                 ),
               ),
-              // Botão continuar
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                 child: Column(
@@ -133,43 +118,31 @@ class _VideoScreenState extends State<VideoScreen> {
                         child: Text(
                           'Assista todos os vídeos para continuar',
                           style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.6),
-                              fontSize: 12),
+                              color: Colors.white.withValues(alpha: 0.6), fontSize: 12),
                         ),
                       ),
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor:
-                            todos ? Colors.white : Colors.white24,
-                        foregroundColor: todos
-                            ? AppTheme.primaryDark
-                            : Colors.white54,
-                        padding:
-                            const EdgeInsets.symmetric(vertical: 16),
+                        backgroundColor: todos ? Colors.white : Colors.white24,
+                        foregroundColor: todos ? AppTheme.primaryDark : Colors.white54,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
+                            borderRadius: BorderRadius.circular(14)),
                       ),
                       onPressed: todos
                           ? () async {
-                              await context
-                                  .read<AppProvider>()
-                                  .finishVideos();
+                              await context.read<AppProvider>().finishVideos();
                               if (context.mounted) {
-                                Navigator.pushReplacementNamed(
-                                    context, '/instruction',
+                                Navigator.pushReplacementNamed(context, '/instruction',
                                     arguments: 'pos');
                               }
                             }
                           : null,
-                      child: Row(
+                      child: const Row(
                         mainAxisAlignment: MainAxisAlignment.center,
-                        children: const [
-                          Text(
-                            'Continuar para o pós-teste',
-                            style: TextStyle(
-                                fontSize: 15, fontWeight: FontWeight.w800),
-                          ),
+                        children: [
+                          Text('Continuar para o pós-teste',
+                              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
                           SizedBox(width: 8),
                           Icon(Icons.arrow_forward_rounded),
                         ],
@@ -188,88 +161,325 @@ class _VideoScreenState extends State<VideoScreen> {
   Widget _videoCard(int index) {
     final v = _videos[index];
     final assistido = _assistidos.contains(index);
+    final expandido = _expanded == index;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: assistido
-            ? Colors.white
-            : Colors.white.withValues(alpha: 0.92),
+        color: assistido ? Colors.white : Colors.white.withValues(alpha: 0.92),
         borderRadius: BorderRadius.circular(14),
-        border: assistido
-            ? Border.all(color: AppTheme.primaryLight, width: 2)
-            : null,
+        border: assistido ? Border.all(color: AppTheme.primaryLight, width: 2) : null,
       ),
-      child: ListTile(
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: assistido
-                ? AppTheme.primaryPale
-                : Colors.grey.shade100,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(
-            assistido ? Icons.check_circle_rounded : v.icone,
-            color: assistido ? AppTheme.primary : Colors.grey.shade500,
-            size: 22,
-          ),
-        ),
-        title: Text(
-          v.titulo,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-            color: assistido ? AppTheme.textDark : AppTheme.textDark,
-          ),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 3),
-            Text(
-              v.descricao,
-              style: const TextStyle(
-                  fontSize: 11, color: AppTheme.textMedium, height: 1.3),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+      child: Column(
+        children: [
+          // Linha principal do card
+          InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: () => setState(() => _expanded = expandido ? null : index),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: assistido ? AppTheme.primaryPale : Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      assistido ? Icons.check_circle_rounded : v.icone,
+                      color: assistido ? AppTheme.primary : Colors.grey.shade500,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          v.titulo,
+                          style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.textDark),
+                        ),
+                        const SizedBox(height: 3),
+                        Row(
+                          children: [
+                            Icon(Icons.timer_outlined,
+                                size: 11, color: Colors.grey.shade400),
+                            const SizedBox(width: 3),
+                            Text('${v.duracao} min',
+                                style: TextStyle(
+                                    fontSize: 11, color: Colors.grey.shade400)),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    expandido ? Icons.expand_less : Icons.expand_more,
+                    color: AppTheme.textMedium,
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 4),
-            Row(
+          ),
+
+          // Painel expansível com o player
+          AnimatedCrossFade(
+            firstChild: const SizedBox.shrink(),
+            secondChild: _PlayerPanel(
+              videoIndex: index,
+              duracaoMinutos: v.duracao,
+              descricao: v.descricao,
+              jaAssistido: assistido,
+              onConcluido: () => setState(() {
+                _assistidos.add(index);
+                _expanded = null;
+              }),
+            ),
+            crossFadeState:
+                expandido ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+            duration: const Duration(milliseconds: 300),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Player placeholder ──────────────────────────────────────────────────────
+
+class _PlayerPanel extends StatefulWidget {
+  final int videoIndex;
+  final int duracaoMinutos;
+  final String descricao;
+  final bool jaAssistido;
+  final VoidCallback onConcluido;
+
+  const _PlayerPanel({
+    required this.videoIndex,
+    required this.duracaoMinutos,
+    required this.descricao,
+    required this.jaAssistido,
+    required this.onConcluido,
+  });
+
+  @override
+  State<_PlayerPanel> createState() => _PlayerPanelState();
+}
+
+class _PlayerPanelState extends State<_PlayerPanel> {
+  bool _playing = false;
+  double _progress = 0.0;
+  Timer? _timer;
+
+  // Simulação: cada segundo = 1% de progresso (para facilitar teste)
+  // Na versão final com vídeo real, esta lógica será substituída pelo player
+  static const _ticksTotal = 100;
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _togglePlay() {
+    if (_progress >= 1.0) return;
+    if (_playing) {
+      _timer?.cancel();
+      setState(() => _playing = false);
+    } else {
+      setState(() => _playing = true);
+      _timer = Timer.periodic(
+        Duration(milliseconds: (widget.duracaoMinutos * 600 / _ticksTotal).round()),
+        (t) {
+          if (!mounted) { t.cancel(); return; }
+          setState(() {
+            _progress += 1 / _ticksTotal;
+            if (_progress >= 1.0) {
+              _progress = 1.0;
+              _playing = false;
+              t.cancel();
+            }
+          });
+        },
+      );
+    }
+  }
+
+  String _formatTime(double progress, int totalMin) {
+    final totalSec = totalMin * 60;
+    final current = (progress * totalSec).round();
+    final m = current ~/ 60;
+    final s = current % 60;
+    return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final totalMin = widget.duracaoMinutos;
+    final totalStr =
+        '${(totalMin).toString().padLeft(2, '0')}:00';
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0D1117),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          // Área do vídeo
+          AspectRatio(
+            aspectRatio: 16 / 9,
+            child: Stack(
+              alignment: Alignment.center,
               children: [
-                Icon(Icons.timer_outlined,
-                    size: 11, color: Colors.grey.shade400),
-                const SizedBox(width: 3),
-                Text(v.duracao,
-                    style: TextStyle(
-                        fontSize: 11, color: Colors.grey.shade400)),
+                // Fundo
+                Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF161B22),
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                  ),
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.smart_display_outlined,
+                            size: 48, color: Colors.white.withValues(alpha: 0.15)),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Vídeo em preparação',
+                          style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.3),
+                              fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                // Botão play/pause central
+                if (_progress < 1.0)
+                  GestureDetector(
+                    onTap: _togglePlay,
+                    child: Container(
+                      width: 64,
+                      height: 64,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white38, width: 2),
+                      ),
+                      child: Icon(
+                        _playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                        color: Colors.white,
+                        size: 36,
+                      ),
+                    ),
+                  ),
+                if (_progress >= 1.0)
+                  Container(
+                    width: 64,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary.withValues(alpha: 0.9),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.check_rounded,
+                        color: Colors.white, size: 36),
+                  ),
               ],
             ),
-          ],
-        ),
-        trailing: TextButton(
-          onPressed: () => setState(() => _assistidos.add(index)),
-          style: TextButton.styleFrom(
-            backgroundColor: assistido
-                ? AppTheme.primaryPale
-                : AppTheme.primary,
-            foregroundColor:
-                assistido ? AppTheme.primary : Colors.white,
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
+          ),
+
+          // Controles
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+            child: Column(
+              children: [
+                // Barra de progresso
+                SliderTheme(
+                  data: SliderTheme.of(context).copyWith(
+                    trackHeight: 3,
+                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                    overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+                    activeTrackColor: AppTheme.primaryLight,
+                    inactiveTrackColor: Colors.white24,
+                    thumbColor: Colors.white,
+                    overlayColor: Colors.white12,
+                  ),
+                  child: Slider(
+                    value: _progress,
+                    onChanged: (v) {
+                      _timer?.cancel();
+                      setState(() {
+                        _progress = v;
+                        _playing = false;
+                      });
+                    },
+                  ),
+                ),
+                // Tempo + botões
+                Row(
+                  children: [
+                    Text(
+                      _formatTime(_progress, totalMin),
+                      style: const TextStyle(color: Colors.white60, fontSize: 11),
+                    ),
+                    const Spacer(),
+                    Text(
+                      totalStr,
+                      style: const TextStyle(color: Colors.white60, fontSize: 11),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
-          child: Text(
-            assistido ? 'Assistido' : 'Assistir',
-            style: const TextStyle(
-                fontSize: 12, fontWeight: FontWeight.w700),
+
+          // Descrição + botão concluir
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.descricao,
+                  style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.6),
+                      fontSize: 12,
+                      height: 1.4),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: widget.jaAssistido ? null : widget.onConcluido,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: widget.jaAssistido
+                          ? Colors.white12
+                          : AppTheme.primaryLight,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8)),
+                    ),
+                    icon: Icon(widget.jaAssistido
+                        ? Icons.check_circle_rounded
+                        : Icons.done_rounded),
+                    label: Text(widget.jaAssistido
+                        ? 'Já assistido'
+                        : 'Marcar como assistido'),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -278,7 +488,7 @@ class _VideoScreenState extends State<VideoScreen> {
 class _Video {
   final String titulo;
   final String descricao;
-  final String duracao;
+  final int duracao; // em minutos
   final IconData icone;
   const _Video({
     required this.titulo,

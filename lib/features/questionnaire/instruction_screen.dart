@@ -23,94 +23,126 @@ class InstructionScreen extends StatelessWidget {
         child: SafeArea(
           child: Column(
             children: [
-              const SizedBox(height: 32),
-              const Icon(Icons.help_outline_rounded,
-                  color: Colors.white70, size: 48),
+              const SizedBox(height: 28),
+
+              // Ícone e título
+              Text(
+                isPos ? '🎓' : '📋',
+                style: const TextStyle(fontSize: 56),
+              ),
               const SizedBox(height: 12),
               Text(
-                isPos ? 'Pós-teste' : 'Pré-teste',
+                isPos ? 'Perguntas finais' : 'Perguntas iniciais',
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 22,
+                  fontSize: 26,
                   fontWeight: FontWeight.w900,
                 ),
               ),
               const SizedBox(height: 6),
               Text(
                 isPos
-                    ? 'Após o conteúdo educativo'
-                    : 'Antes do conteúdo educativo',
-                style: const TextStyle(color: Colors.white60, fontSize: 13),
+                    ? 'Você já assistiu os vídeos — agora responda de novo'
+                    : 'Antes dos vídeos, vamos conhecer o que você já sabe',
+                style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 14,
+                    height: 1.4),
+                textAlign: TextAlign.center,
               ),
+
               const SizedBox(height: 24),
+
+              // Card de instruções
               Expanded(
                 child: Container(
                   margin: const EdgeInsets.symmetric(horizontal: 16),
-                  padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(24),
                   ),
                   child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(24),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          isPos
-                              ? 'Você assistiu aos vídeos educativos.\nAgora responda as mesmas perguntas.'
-                              : 'Antes de começar, leia as instruções abaixo.',
-                          style: const TextStyle(
-                            fontSize: 15,
+                        const Text(
+                          'Como funciona?',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
                             color: AppTheme.textDark,
-                            fontWeight: FontWeight.w600,
                           ),
                         ),
                         const SizedBox(height: 20),
-                        _item(Icons.touch_app_outlined, 'Como responder',
-                            'Toque na opção que melhor representa sua situação ou opinião. Para passar para a próxima pergunta, o botão "Próxima" ficará verde após você selecionar uma resposta.'),
-                        _item(Icons.linear_scale_rounded, 'Escala de concordância',
-                            'Algumas perguntas têm escala de 1 a 5. Escolha o número que melhor representa o quanto você concorda (1 = discordo totalmente, 5 = concordo totalmente).'),
-                        _item(Icons.edit_note_rounded, 'Perguntas abertas',
-                            'Algumas perguntas pedem que você escreva com suas próprias palavras. Não há resposta certa ou errada.'),
-                        _item(Icons.lock_outline_rounded, 'Privacidade',
-                            'Suas respostas são confidenciais e usadas apenas para fins científicos. Não há respostas certas ou erradas.'),
-                        _item(Icons.access_time_rounded, 'Tempo',
-                            'Responda com calma. Não há limite de tempo.'),
+
+                        _instrucao(
+                          emoji: '👆',
+                          titulo: 'Toque na resposta',
+                          texto: 'Cada pergunta tem opções para escolher. Toque na que você achar certa.',
+                        ),
+                        _instrucao(
+                          emoji: '⭐',
+                          titulo: 'Perguntas com estrelas',
+                          texto: 'Algumas perguntas pedem para você dar uma nota de 1 a 5. Quanto mais estrelas, mais você concorda.',
+                        ),
+                        _instrucao(
+                          emoji: '✏️',
+                          titulo: 'Perguntas abertas',
+                          texto: 'Algumas perguntas pedem que você escreva. Não existe resposta certa — escreva o que você pensa.',
+                        ),
+                        _instrucao(
+                          emoji: '🔒',
+                          titulo: 'Suas respostas são privadas',
+                          texto: 'Ninguém vai saber o que você respondeu. Os dados são usados só para pesquisa.',
+                        ),
+                        _instrucao(
+                          emoji: '⏱️',
+                          titulo: 'Sem pressa',
+                          texto: 'Responda com calma. Não tem tempo limite.',
+                          isLast: true,
+                        ),
                       ],
                     ),
                   ),
                 ),
               ),
+
               const SizedBox(height: 20),
+
+              // Botão iniciar
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: AppTheme.primaryDark,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  onPressed: () => Navigator.pushReplacementNamed(
-                    context,
-                    '/questionnaire',
-                    arguments: fase,
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        isPos ? 'Iniciar pós-teste' : 'Iniciar questionário',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                        ),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: AppTheme.primaryDark,
+                      padding: const EdgeInsets.symmetric(vertical: 18),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
                       ),
-                      const SizedBox(width: 8),
-                      const Icon(Icons.arrow_forward_rounded),
-                    ],
+                    ),
+                    onPressed: () => Navigator.pushReplacementNamed(
+                      context,
+                      '/questionnaire',
+                      arguments: fase,
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'Entendi, vamos começar!',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        SizedBox(width: 10),
+                        Icon(Icons.arrow_forward_rounded, size: 22),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -122,39 +154,54 @@ class InstructionScreen extends StatelessWidget {
     );
   }
 
-  Widget _item(IconData icon, String title, String desc) => Padding(
-        padding: const EdgeInsets.only(bottom: 16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AppTheme.primaryPale,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, color: AppTheme.primary, size: 20),
+  Widget _instrucao({
+    required String emoji,
+    required String titulo,
+    required String texto,
+    bool isLast = false,
+  }) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: isLast ? 0 : 20),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: AppTheme.primaryPale,
+              borderRadius: BorderRadius.circular(14),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 13,
-                          color: AppTheme.textDark)),
-                  const SizedBox(height: 3),
-                  Text(desc,
-                      style: const TextStyle(
-                          fontSize: 12,
-                          color: AppTheme.textMedium,
-                          height: 1.4)),
-                ],
-              ),
+            alignment: Alignment.center,
+            child: Text(emoji, style: const TextStyle(fontSize: 24)),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  titulo,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                    color: AppTheme.textDark,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  texto,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: AppTheme.textMedium,
+                    height: 1.5,
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-      );
+          ),
+        ],
+      ),
+    );
+  }
 }

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../core/theme/app_theme.dart';
 import '../../providers/app_provider.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -87,42 +86,29 @@ class _SplashScreenState extends State<SplashScreen>
     return Scaffold(
       body: FadeTransition(
         opacity: _fadeIn,
-        child: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                AppTheme.primaryDark,
-                AppTheme.primary,
-                AppTheme.primaryLight,
-              ],
-              stops: [0.0, 0.55, 1.0],
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Foto de fundo
+            Image.asset(
+              'assets/images/splash_bg.jpeg',
+              fit: BoxFit.cover,
             ),
-          ),
-          child: Stack(
+            // Overlay escuro para legibilidade
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withValues(alpha: 0.45),
+                    Colors.black.withValues(alpha: 0.70),
+                  ],
+                ),
+              ),
+            ),
+            Stack(
             children: [
-              // Formas decorativas de fundo
-              Positioned(
-                top: -60, right: -60,
-                child: Container(
-                  width: 220, height: 220,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.04),
-                    borderRadius: BorderRadius.circular(110),
-                  ),
-                ),
-              ),
-              Positioned(
-                bottom: -40, left: -40,
-                child: Container(
-                  width: 180, height: 180,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.04),
-                    borderRadius: BorderRadius.circular(90),
-                  ),
-                ),
-              ),
               Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -199,7 +185,8 @@ class _SplashScreenState extends State<SplashScreen>
                 ),
               ),
             ],
-          ),
+            ),
+          ],
         ),
       ),
     );

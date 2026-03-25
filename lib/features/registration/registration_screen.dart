@@ -38,10 +38,17 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   String? _gestante;
   String? _idadeFaixa;
   String? _escolaridade;
+  String? _estado;
   final _nomeCtrl = TextEditingController();
   final _cpfCtrl = TextEditingController();
   final _comunidadeCtrl = TextEditingController();
   final _municipioCtrl = TextEditingController();
+
+  static const _estados = [
+    'AC','AL','AP','AM','BA','CE','DF','ES','GO',
+    'MA','MT','MS','MG','PA','PB','PR','PE','PI',
+    'RJ','RN','RS','RO','RR','SC','SP','SE','TO',
+  ];
   bool _loading = false;
 
   static const _sexoBioOpcoes = [
@@ -100,6 +107,13 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     }
     setState(() => _loading = true);
 
+    if (_estado == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Selecione o estado')),
+      );
+      setState(() => _loading = false);
+      return;
+    }
     try {
       await context.read<AppProvider>().saveParticipant(
             nome: _nomeCtrl.text.trim(),
@@ -110,6 +124,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             idadeFaixa: _idadeFaixa!,
             comunidade: _comunidadeCtrl.text.trim(),
             municipio: _municipioCtrl.text.trim(),
+            estado: _estado!,
             escolaridade: _escolaridade ?? 'Não informado',
           );
       if (!mounted) return;
@@ -235,6 +250,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               ),
               const SizedBox(height: 16),
 
+              // Estado
+              _label('Estado *'),
+              _estadoSelector(),
+              const SizedBox(height: 16),
+
               // Escolaridade
               _label('Escolaridade (opcional)'),
               _dropdown(
@@ -260,6 +280,75 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _estadoSelector() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: _estado == null
+              ? const Color(0xFFE5DFD3)
+              : AppTheme.primary,
+          width: 2,
+        ),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (_estado != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                children: [
+                  const Icon(Icons.location_on, color: AppTheme.primary, size: 16),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Selecionado: $_estado',
+                    style: const TextStyle(
+                      color: AppTheme.primary,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: _estados.map((uf) {
+              final selected = _estado == uf;
+              return GestureDetector(
+                onTap: () => setState(() => _estado = uf),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  width: 40,
+                  height: 36,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: selected ? AppTheme.primary : Colors.transparent,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: selected ? AppTheme.primary : const Color(0xFFD0C8BC),
+                    ),
+                  ),
+                  child: Text(
+                    uf,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: selected ? Colors.white : AppTheme.textMedium,
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
       ),
     );
   }

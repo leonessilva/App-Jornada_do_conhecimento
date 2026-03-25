@@ -9,6 +9,7 @@ import '../data/database/database_helper.dart';
 import '../data/repositories/participant_repository.dart';
 import '../data/repositories/response_repository.dart';
 import '../data/repositories/progress_repository.dart';
+import '../core/sync_service.dart';
 
 // Etapas do fluxo
 class AppStep {
@@ -83,10 +84,11 @@ class AppProvider extends ChangeNotifier {
     required String idadeFaixa,
     required String comunidade,
     required String municipio,
+    required String estado,
     required String escolaridade,
   }) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('participant_cpf', cpf);
+    await prefs.setString('participant_cpf', ParticipantRepository.hashCpf(cpf));
 
     _participant = Participant(
       id: _participantId!,
@@ -98,10 +100,12 @@ class AppProvider extends ChangeNotifier {
       idadeFaixa: idadeFaixa,
       comunidade: comunidade,
       municipio: municipio,
+      estado: estado,
       escolaridade: escolaridade,
       createdAt: DateTime.now(),
     );
     await _participantRepo.save(_participant!);
+    SyncService().syncPendentes();
     await _saveProgress(AppStep.questionnairePre, fase: 'pre', index: 0);
     notifyListeners();
   }

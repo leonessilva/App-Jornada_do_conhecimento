@@ -35,6 +35,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _cpfCtrl = TextEditingController();
   bool _loading = false;
+  bool _mostrarCpf = false;
   String? _erro;
 
   @override
@@ -58,7 +59,7 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _loading = false);
 
     if (!encontrado) {
-      setState(() => _erro = 'CPF não encontrado. Verifique ou inicie como novo participante.');
+      setState(() => _erro = 'CPF não encontrado.\nVerifique os números e tente de novo.');
       return;
     }
 
@@ -83,158 +84,260 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? const Color(0xFF1E2A1E) : Colors.white;
+
     return Scaffold(
-      backgroundColor: AppTheme.primary,
+      backgroundColor: AppTheme.primaryDark,
       body: SafeArea(
         child: Column(
           children: [
-            const SizedBox(height: 48),
-            // Logo / título
-            const Icon(Icons.eco_rounded, size: 64, color: Colors.white),
-            const SizedBox(height: 16),
+            const SizedBox(height: 40),
+            // Ícone + título
+            const Icon(Icons.eco_rounded, size: 72, color: Colors.white),
+            const SizedBox(height: 12),
             const Text(
-              'Jornada do',
-              style: TextStyle(
-                color: Colors.white70,
-                fontSize: 20,
-                fontWeight: FontWeight.w300,
-                letterSpacing: 2,
-              ),
-            ),
-            const Text(
-              'Conhecimento',
+              'Jornada do Conhecimento',
+              textAlign: TextAlign.center,
               style: TextStyle(
                 color: Colors.white,
-                fontSize: 26,
+                fontSize: 24,
                 fontWeight: FontWeight.bold,
-                letterSpacing: 1,
+                letterSpacing: 0.5,
               ),
             ),
-            const SizedBox(height: 48),
-            // Card de login
+            const SizedBox(height: 40),
+
+            // Card principal
             Expanded(
               child: Container(
                 width: double.infinity,
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                decoration: BoxDecoration(
+                  color: cardBg,
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
                 ),
-                padding: const EdgeInsets.all(28),
+                padding: const EdgeInsets.fromLTRB(24, 36, 24, 24),
                 child: SingleChildScrollView(
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Bem-vindo de volta',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.textDark,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Digite seu CPF para retomar de onde parou.',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: AppTheme.textMedium,
-                          ),
-                        ),
-                        const SizedBox(height: 28),
-                        const Text(
-                          'CPF',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.textDark,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        TextFormField(
-                          controller: _cpfCtrl,
-                          decoration: const InputDecoration(
-                            hintText: '000.000.000-00',
-                            prefixIcon: Icon(Icons.badge_outlined),
-                          ),
-                          keyboardType: TextInputType.number,
-                          inputFormatters: [_CpfInputFormatter()],
-                          validator: (v) {
-                            final digits = (v ?? '').replaceAll(RegExp(r'\D'), '');
-                            if (digits.length != 11) return 'CPF inválido (11 dígitos)';
-                            return null;
-                          },
-                        ),
-                        if (_erro != null) ...[
-                          const SizedBox(height: 12),
-                          Text(
-                            _erro!,
-                            style: const TextStyle(
-                              color: Colors.red,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: 24),
-                        ElevatedButton(
-                          onPressed: _loading ? null : _entrar,
-                          child: _loading
-                              ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(
-                                      color: Colors.white, strokeWidth: 2),
-                                )
-                              : const Text('Entrar'),
-                        ),
-                        const SizedBox(height: 32),
-                        const Divider(),
-                        const SizedBox(height: 24),
-                        Center(
-                          child: Column(
-                            children: [
-                              const Text(
-                                'Primeira vez no app?',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: AppTheme.textMedium,
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              OutlinedButton(
-                                onPressed: () => Navigator.pushReplacementNamed(
-                                    context, '/consent'),
-                                child: const Text('Novo participante'),
-                              ),
-                              const SizedBox(height: 24),
-                              const Divider(),
-                              const SizedBox(height: 16),
-                              TextButton.icon(
-                                onPressed: () => Navigator.pushNamed(
-                                    context, '/admin_login'),
-                                icon: const Icon(
-                                    Icons.admin_panel_settings_outlined,
-                                    size: 16,
-                                    color: AppTheme.textMedium),
-                                label: const Text(
-                                  'Acesso do pesquisador',
-                                  style: TextStyle(
-                                    color: AppTheme.textMedium,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  child: _mostrarCpf ? _campoCpf(colorScheme) : _opcoes(),
                 ),
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  // Tela inicial — dois botões grandes
+  Widget _opcoes() {
+    return Column(
+      children: [
+        const Text(
+          'O que você quer fazer?',
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 32),
+
+        // Botão: primeira vez
+        _BotaoGrande(
+          icone: Icons.person_add_alt_1_rounded,
+          titulo: 'É minha primeira vez',
+          subtitulo: 'Quero começar agora',
+          cor: AppTheme.primary,
+          onTap: () => Navigator.pushReplacementNamed(context, '/consent'),
+        ),
+
+        const SizedBox(height: 16),
+
+        // Botão: já participou
+        _BotaoGrande(
+          icone: Icons.login_rounded,
+          titulo: 'Já participei antes',
+          subtitulo: 'Quero continuar de onde parei',
+          cor: AppTheme.primaryDark,
+          onTap: () => setState(() => _mostrarCpf = true),
+        ),
+
+        const SizedBox(height: 40),
+        TextButton.icon(
+          onPressed: () => Navigator.pushNamed(context, '/admin_login'),
+          icon: const Icon(Icons.admin_panel_settings_outlined,
+              size: 16, color: AppTheme.textMedium),
+          label: const Text(
+            'Acesso do pesquisador',
+            style: TextStyle(color: AppTheme.textMedium, fontSize: 13),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Campo CPF
+  Widget _campoCpf(ColorScheme colorScheme) {
+    return Form(
+      key: _formKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Voltar
+          GestureDetector(
+            onTap: () => setState(() {
+              _mostrarCpf = false;
+              _erro = null;
+              _cpfCtrl.clear();
+            }),
+            child: Row(
+              children: const [
+                Icon(Icons.arrow_back_ios_rounded, size: 18, color: AppTheme.primary),
+                SizedBox(width: 4),
+                Text('Voltar',
+                    style: TextStyle(color: AppTheme.primary, fontSize: 16)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 28),
+
+          const Text(
+            'Digite seu CPF',
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'São os 11 números do seu documento.',
+            style: TextStyle(fontSize: 16, color: AppTheme.textMedium),
+          ),
+          const SizedBox(height: 28),
+
+          TextFormField(
+            controller: _cpfCtrl,
+            decoration: const InputDecoration(
+              hintText: '000.000.000-00',
+              prefixIcon: Icon(Icons.badge_outlined),
+              hintStyle: TextStyle(fontSize: 18),
+            ),
+            style: const TextStyle(fontSize: 22, letterSpacing: 2),
+            keyboardType: TextInputType.number,
+            inputFormatters: [_CpfInputFormatter()],
+            validator: (v) {
+              final digits = (v ?? '').replaceAll(RegExp(r'\D'), '');
+              if (digits.length != 11) return 'Digite os 11 números do CPF';
+              return null;
+            },
+          ),
+
+          if (_erro != null) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.red.shade200),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.error_outline, color: Colors.red, size: 24),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      _erro!,
+                      style: const TextStyle(color: Colors.red, fontSize: 15),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          const SizedBox(height: 28),
+          ElevatedButton(
+            onPressed: _loading ? null : _entrar,
+            style: ElevatedButton.styleFrom(
+              minimumSize: const Size.fromHeight(60),
+              textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            child: _loading
+                ? const SizedBox(
+                    height: 24,
+                    width: 24,
+                    child: CircularProgressIndicator(
+                        color: Colors.white, strokeWidth: 2.5),
+                  )
+                : const Text('Continuar'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BotaoGrande extends StatelessWidget {
+  final IconData icone;
+  final String titulo;
+  final String subtitulo;
+  final Color cor;
+  final VoidCallback onTap;
+
+  const _BotaoGrande({
+    required this.icone,
+    required this.titulo,
+    required this.subtitulo,
+    required this.cor,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: cor,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 22),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(icone, color: Colors.white, size: 32),
+              ),
+              const SizedBox(width: 20),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      titulo,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitulo,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.8),
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.arrow_forward_ios_rounded,
+                  color: Colors.white70, size: 18),
+            ],
+          ),
         ),
       ),
     );

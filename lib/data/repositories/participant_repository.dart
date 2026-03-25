@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
 import 'package:sqflite/sqflite.dart';
 import '../database/database_helper.dart';
 import '../models/participant.dart';
@@ -5,11 +7,19 @@ import '../models/participant.dart';
 class ParticipantRepository {
   final _db = DatabaseHelper.instance;
 
+  /// Gera hash SHA-256 do CPF — nunca armazenamos o CPF em texto puro.
+  static String hashCpf(String cpf) {
+    final digits = cpf.replaceAll(RegExp(r'\D'), '');
+    return sha256.convert(utf8.encode(digits)).toString();
+  }
+
   Future<void> save(Participant participant) async {
     final db = await _db.database;
+    final map = participant.toMap();
+    map['cpf'] = hashCpf(map['cpf'] as String);
     await db.insert(
       'participants',
-      participant.toMap(),
+      map,
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
@@ -40,7 +50,7 @@ class ParticipantRepository {
     final result = await db.query(
       'participants',
       where: 'cpf = ?',
-      whereArgs: [cpf],
+      whereArgs: [hashCpf(cpf)],
       limit: 1,
     );
     if (result.isEmpty) return null;

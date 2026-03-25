@@ -143,10 +143,10 @@ class _QuestionnaireScreenState extends State<QuestionnaireScreen> {
               children: [
                 Text(
                   isPos
-                      ? '✅ Pós-teste — Após o Conteúdo'
-                      : '📋 Pré-teste — Conhecimento Atual',
+                      ? '🎓 Perguntas finais'
+                      : '📋 Perguntas iniciais',
                   style: const TextStyle(
-                    fontSize: 12,
+                    fontSize: 13,
                     color: Colors.white70,
                     fontWeight: FontWeight.w600,
                   ),
@@ -183,8 +183,8 @@ class _QuestionnaireScreenState extends State<QuestionnaireScreen> {
             const SizedBox(height: 6),
             Text(
               isPos
-                  ? 'Mesmas perguntas — para comparação de evolução'
-                  : 'Responda conforme sua situação atual',
+                  ? 'Responda as mesmas perguntas de antes'
+                  : 'Responda com sinceridade — não existe resposta errada',
               style: const TextStyle(
                 fontSize: 11,
                 color: Colors.white54,
@@ -229,8 +229,8 @@ class _QuestionnaireScreenState extends State<QuestionnaireScreen> {
               onPressed: answered ? _goNext : null,
               child: Text(
                 isLast
-                    ? (_fase == 'pre' ? 'Concluir Pré' : 'Concluir Pós')
-                    : 'Próxima',
+                    ? (_fase == 'pre' ? 'Terminar perguntas' : 'Ver meu resultado')
+                    : 'Próxima →',
               ),
             ),
           ),

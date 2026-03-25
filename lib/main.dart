@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
 import 'package:sqflite/sqflite.dart';
+import 'package:firebase_core/firebase_core.dart';
 
+import 'core/firebase_options.dart';
+import 'core/sync_service.dart';
 import 'core/theme/app_theme.dart';
 import 'providers/app_provider.dart';
 import 'features/splash/splash_screen.dart';
@@ -24,6 +27,9 @@ void main() async {
     databaseFactory = databaseFactoryFfiWebNoWebWorker;
   }
 
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  SyncService().init();
+
   runApp(
     ChangeNotifierProvider(
       create: (_) => AppProvider()..initialize(),
@@ -40,6 +46,8 @@ class JornadaApp extends StatelessWidget {
     return MaterialApp(
       title: 'Jornada do Conhecimento',
       theme: AppTheme.theme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: ThemeMode.system,
       debugShowCheckedModeBanner: false,
       initialRoute: '/',
       routes: {
@@ -54,7 +62,7 @@ class JornadaApp extends StatelessWidget {
         '/videos': (ctx) => const VideoScreen(),
         '/results': (ctx) => const ResultsScreen(),
         '/admin_login': (ctx) => const AdminLoginScreen(),
-        '/admin': (ctx) => const AdminDashboardScreen(),
+        '/admin': (ctx) => const AdminDashboardScreen(key: ValueKey('admin')),
       },
     );
   }
