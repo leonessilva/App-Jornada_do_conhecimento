@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/tts_service.dart';
+import '../../core/widgets/tts_button.dart';
 import '../../providers/app_provider.dart';
 
 class _CpfInputFormatter extends TextInputFormatter {
@@ -41,11 +43,12 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void dispose() {
     _cpfCtrl.dispose();
+    TtsService().stop();
     super.dispose();
   }
 
   Future<void> _entrar() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!(_formKey.currentState?.validate() ?? false)) return;
     setState(() {
       _loading = true;
       _erro = null;
@@ -129,6 +132,18 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  static const _textoOpcoes =
+      'Bem-vindo à Jornada do Conhecimento. '
+      'O que você quer fazer? '
+      'Primeira opção: É minha primeira vez. Toque aqui para começar agora. '
+      'Segunda opção: Já participei antes. Toque aqui para continuar de onde parou.';
+
+  static const _textoCpf =
+      'Digite seu C P F. '
+      'O C P F são os onze números do seu documento. '
+      'Você pode encontrá-los no seu cartão do C P F ou na carteira de identidade. '
+      'Depois de digitar, toque no botão Continuar.';
+
   // Tela inicial — dois botões grandes
   Widget _opcoes() {
     return Column(
@@ -140,7 +155,9 @@ class _LoginScreenState extends State<LoginScreen> {
             fontWeight: FontWeight.bold,
           ),
         ),
-        const SizedBox(height: 32),
+        const SizedBox(height: 16),
+        const TtsButton(text: _textoOpcoes, label: 'Ouvir as opções'),
+        const SizedBox(height: 20),
 
         // Botão: primeira vez
         _BotaoGrande(
@@ -210,7 +227,9 @@ class _LoginScreenState extends State<LoginScreen> {
             'São os 11 números do seu documento.',
             style: TextStyle(fontSize: 16, color: AppTheme.textMedium),
           ),
-          const SizedBox(height: 28),
+          const SizedBox(height: 14),
+          const TtsButton(text: _textoCpf, label: 'Ouvir instruções'),
+          const SizedBox(height: 20),
 
           TextFormField(
             controller: _cpfCtrl,

@@ -65,11 +65,11 @@ class AppProvider extends ChangeNotifier {
   }
 
   // ── TCLE aceito ──────────────────────────────────────────────
-  Future<void> acceptConsent() async {
+  Future<void> acceptConsent({String tcleVersion = '1.0'}) async {
     final prefs = await SharedPreferences.getInstance();
     _participantId ??= const Uuid().v4();
     await prefs.setString('participant_id', _participantId!);
-    await _participantRepo.saveConsent(_participantId!);
+    await _participantRepo.saveConsent(_participantId!, tcleVersion: tcleVersion);
     await _saveProgress(AppStep.registration);
     notifyListeners();
   }
@@ -112,8 +112,62 @@ class AppProvider extends ChangeNotifier {
 
   // ── Login por CPF (retomar sessão) ──────────────────────────
   Future<bool> loginByCpf(String cpf) async {
-    final participant = await _participantRepo.findByCpf(cpf);
-    if (participant == null) return false;
+    // 1. Tenta localmente
+    var participant = await _participantRepo.findByCpf(cpf);
+
+    // 2. Se não encontrou localmente, tenta restaurar da nuvem
+    if (participant == null) {
+      final cpfHash = ParticipantRepository.hashCpf(cpf);
+      final cloudData = await SyncService().restoreParticipant(cpfHash);
+      if (cloudData == null) return false;
+
+      // Reconstrói participante (nome não está na nuvem — privacidade)
+      participant = Participant(
+        id: cloudData['id'] as String,
+        nome: '',
+        cpf: cpf,
+        sexo: cloudData['sexo'] as String? ?? '',
+        genero: cloudData['genero'] as String? ?? '',
+        gestante: cloudData['gestante'] as String?,
+        idadeFaixa: cloudData['idade_faixa'] as String? ?? '',
+        comunidade: cloudData['comunidade'] as String? ?? '',
+        municipio: cloudData['municipio'] as String? ?? '',
+        estado: cloudData['estado'] as String? ?? '',
+        escolaridade: cloudData['escolaridade'] as String? ?? '',
+        createdAt: DateTime.fromMillisecondsSinceEpoch(
+            (cloudData['created_at'] as int?) ?? 0),
+      );
+      await _participantRepo.save(participant);
+      await _participantRepo.saveConsent(participant.id);
+
+      // Restaura progresso
+      if (cloudData['etapa_atual'] != null) {
+        final progress = ProgressModel(
+          participantId: participant.id,
+          etapaAtual: cloudData['etapa_atual'] as String,
+          indicePergunta: (cloudData['indice_pergunta'] as int?) ?? 0,
+          fase: cloudData['fase'] as String?,
+          updatedAt: DateTime.fromMillisecondsSinceEpoch(
+              (cloudData['progress_updated_at'] as int?) ?? 0),
+        );
+        await _progressRepo.saveProgress(progress);
+      }
+
+      // Restaura respostas
+      final respostas =
+          (cloudData['respostas'] as List<dynamic>? ?? []);
+      for (final r in respostas) {
+        try {
+          await _responseRepo.saveResponse(
+              ResponseModel.fromMap(Map<String, dynamic>.from(r as Map)));
+        } catch (_) {
+          // Ignora resposta com dados inválidos
+        }
+      }
+
+      // Recarrega participante com cpf_hash correto do SQLite
+      participant = await _participantRepo.findByCpf(cpf) ?? participant;
+    }
 
     _participantId = participant.id;
     _participant = participant;
@@ -129,15 +183,18 @@ class AppProvider extends ChangeNotifier {
 
   // ── Salvar resposta individual ──────────────────────────────
   Future<void> saveAnswer(String questionId, String answer, String fase) async {
+    if (_participantId == null) return;
     _currentAnswers[questionId] = answer;
     notifyListeners();
-    await _responseRepo.saveResponse(ResponseModel(
+    final response = ResponseModel(
       participantId: _participantId!,
       fase: fase,
       questionId: questionId,
       answer: answer,
       timestamp: DateTime.now(),
-    ));
+    );
+    await _responseRepo.saveResponse(response);
+    SyncService().syncResponse(_participantId!, response);
   }
 
   // ── Avançar índice da pergunta ──────────────────────────────
@@ -209,6 +266,7 @@ class AppProvider extends ChangeNotifier {
       updatedAt: DateTime.now(),
     );
     await _progressRepo.saveProgress(_progress!);
+    SyncService().updateProgress(_participantId!, _progress!);
     notifyListeners();
   }
 }

@@ -2,7 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/tts_service.dart';
+import '../../core/widgets/tts_button.dart';
 import '../../providers/app_provider.dart';
+
+/// Versão atual do TCLE — incrementar a cada alteração do texto do termo.
+const kTcleVersion = '1.0';
 
 class ConsentScreen extends StatefulWidget {
   const ConsentScreen({super.key});
@@ -19,10 +24,30 @@ class _ConsentScreenState extends State<ConsentScreen> {
 
   bool get _canProceed => _check1 && _check2 && _check3;
 
+  static const _textoTcle =
+      'Termo de Consentimento Livre e Esclarecido. '
+      'Título da pesquisa: Intervenção educativa sobre percepção de risco e uso seguro de agrotóxicos com agricultores ribeirinhos. '
+      'Do que se trata? Você está sendo convidado a participar de uma pesquisa que avalia o conhecimento e a percepção de risco de agricultores ribeirinhos sobre o uso de agrotóxicos, seus efeitos na saúde e no meio ambiente. '
+      'O que vai acontecer? Você responderá um questionário antes e após assistir a vídeos educativos. As perguntas abordam suas práticas de trabalho, saúde e percepção ambiental. Não há respostas certas ou erradas. '
+      'Riscos e benefícios: Os riscos são mínimos. Sua participação pode contribuir para políticas públicas de saúde no campo. '
+      'Sobre o anonimato: Seus dados serão identificados apenas por um código numérico. Nenhuma informação pessoal será publicada. '
+      'Participação voluntária: Você pode desistir a qualquer momento, sem qualquer prejuízo. '
+      'Para continuar, você precisa confirmar três itens: '
+      'Primeiro: que leu e compreendeu o Termo de Consentimento. '
+      'Segundo: que aceita que suas respostas sejam usadas anonimamente para a pesquisa. '
+      'Terceiro: que está ciente de que sua participação é voluntária e pode desistir a qualquer momento.';
+
+  @override
+  void dispose() {
+    TtsService().stop();
+    super.dispose();
+  }
+
   Future<void> _accept() async {
+    TtsService().stop();
     setState(() => _loading = true);
     try {
-      await context.read<AppProvider>().acceptConsent();
+      await context.read<AppProvider>().acceptConsent(tcleVersion: kTcleVersion);
       if (!mounted) return;
       Navigator.pushReplacementNamed(context, '/registration');
     } catch (e) {
@@ -38,6 +63,7 @@ class _ConsentScreenState extends State<ConsentScreen> {
   }
 
   void _reject() {
+    TtsService().stop();
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
@@ -142,6 +168,12 @@ class _ConsentScreenState extends State<ConsentScreen> {
             const Text(
               'Leia com atenção antes de prosseguir',
               style: TextStyle(color: Colors.white70, fontSize: 13),
+            ),
+            const SizedBox(height: 14),
+            TtsButton(
+              text: _textoTcle,
+              label: 'Ouvir o termo completo',
+              color: Colors.white,
             ),
           ],
         ),

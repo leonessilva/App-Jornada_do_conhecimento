@@ -1,0 +1,51 @@
+// Regras de segurança do Firestore — Jornada do Conhecimento
+// Implante no Firebase Console:
+//   Firestore Database → Regras → colar e publicar
+// OU via Firebase CLI:
+//   firebase deploy --only firestore:rules
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── Participantes ────────────────────────────────────────────────────────
+    match /participantes/{participantId} {
+
+      // Escrita: apenas campos esperados (sem nome plaintext).
+      // cpf_hash é HMAC-SHA256 com pepper — não reversível.
+      allow create, update: if request.resource.data.keys().hasOnly([
+        'id', 'cpf_hash',
+        'sexo', 'genero', 'gestante',
+        'idade_faixa', 'comunidade', 'municipio', 'estado',
+        'escolaridade', 'synced', 'created_at',
+        'etapa_atual', 'indice_pergunta', 'fase', 'progress_updated_at'
+      ]);
+
+      // Leitura permitida — necessária para restauração em novo dispositivo.
+      // Não há nome nem CPF real armazenados (apenas hash não reversível).
+      allow read: if true;
+
+      // Exclusão proibida pelo app (LGPD: soft-delete local).
+      allow delete: if false;
+
+      // ── Respostas (subcoleção) ─────────────────────────────────────────────
+      match /respostas/{respostaId} {
+        // Escrita: apenas campos esperados de uma resposta.
+        allow create, update: if request.resource.data.keys().hasOnly([
+          'participant_id', 'fase', 'question_id', 'answer',
+          'questionnaire_version', 'timestamp'
+        ]);
+
+        // Leitura permitida — necessária para restauração de sessão.
+        allow read: if true;
+
+        allow delete: if false;
+      }
+    }
+
+    // ─── Regra padrão: bloqueia tudo não explicitamente permitido ────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

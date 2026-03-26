@@ -1,11 +1,13 @@
-import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'dart:convert';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/config/app_config.dart';
+import '../../core/security/security_utils.dart';
+import '../../core/security/rate_limiter.dart';
+import '../../core/security/cpf_validator.dart';
 import '../../data/repositories/researcher_repository.dart';
+import '../../data/repositories/audit_repository.dart';
 
 class _CpfFormatter extends TextInputFormatter {
   @override
@@ -142,8 +144,17 @@ class _MasterLoginTab extends StatefulWidget {
 
 class _MasterLoginTabState extends State<_MasterLoginTab> {
   final _ctrl = TextEditingController();
+  final _limiter = const RateLimiter(key: 'admin_master', maxAttempts: 5, windowMinutes: 15);
   bool _obscure = true;
   String? _erro;
+  bool _blocked = false;
+  int _minutesLeft = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkBlock();
+  }
 
   @override
   void dispose() {
@@ -151,13 +162,48 @@ class _MasterLoginTabState extends State<_MasterLoginTab> {
     super.dispose();
   }
 
-  void _entrar() {
-    final hash = sha256.convert(utf8.encode(_ctrl.text)).toString();
-    if (hash == AppConfig.adminPasswordHash) {
+  Future<void> _checkBlock() async {
+    final blocked = await _limiter.isBlocked();
+    final minutes = await _limiter.minutesUntilUnlock();
+    if (mounted) setState(() { _blocked = blocked; _minutesLeft = minutes; });
+  }
+
+  void _entrar() async {
+    await _checkBlock();
+    if (_blocked) return;
+
+    // Verifica conforme a versão configurada em AppConfig.adminPasswordHashVersion
+    final valid = SecurityUtils.verify(
+      _ctrl.text,
+      AppConfig.adminPasswordHash,
+      AppConfig.adminPasswordHashVersion,
+    );
+
+    if (valid) {
+      await _limiter.reset();
+      await AuditRepository().log(
+        action: 'login',
+        entity: 'admin',
+        performedBy: 'master',
+        details: 'Login via senha mestre',
+      );
+      if (!mounted) return;
+      // ignore: use_build_context_synchronously
       Navigator.pushReplacementNamed(context, '/admin',
           arguments: {'role': 'master'});
     } else {
-      setState(() => _erro = 'Senha incorreta.');
+      final nowBlocked = await _limiter.recordFailure();
+      final count = await _limiter.failureCount();
+      final minutes = await _limiter.minutesUntilUnlock();
+      if (mounted) {
+        setState(() {
+          _blocked = nowBlocked;
+          _minutesLeft = minutes;
+          _erro = nowBlocked
+              ? 'Acesso bloqueado por $_minutesLeft minuto(s) após $count tentativas.'
+              : 'Senha incorreta. ${5 - count} tentativa(s) restante(s).';
+        });
+      }
     }
   }
 
@@ -193,14 +239,33 @@ class _MasterLoginTabState extends State<_MasterLoginTab> {
               ),
             ),
           ),
-          if (_erro != null) ...[
+          if (_blocked)
+            Container(
+              margin: const EdgeInsets.only(top: 10),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red.shade200),
+              ),
+              child: Row(children: [
+                const Icon(Icons.lock_clock_rounded,
+                    color: Colors.red, size: 18),
+                const SizedBox(width: 8),
+                Expanded(child: Text(
+                  'Acesso bloqueado por $_minutesLeft minuto(s).',
+                  style: const TextStyle(color: Colors.red, fontSize: 13),
+                )),
+              ]),
+            )
+          else if (_erro != null) ...[
             const SizedBox(height: 10),
             Text(_erro!,
                 style: const TextStyle(color: Colors.red, fontSize: 13)),
           ],
           const SizedBox(height: 20),
           ElevatedButton(
-            onPressed: _entrar,
+            onPressed: _blocked ? null : _entrar,
             child: const Text('Acessar painel'),
           ),
           const SizedBox(height: 24),
@@ -232,9 +297,18 @@ class _ResearcherLoginTabState extends State<_ResearcherLoginTab> {
   final _repo = ResearcherRepository();
   final _cpfCtrl = TextEditingController();
   final _senhaCtrl = TextEditingController();
+  final _limiter = const RateLimiter(key: 'admin_researcher', maxAttempts: 5, windowMinutes: 15);
   bool _obscure = true;
   bool _loading = false;
+  bool _blocked = false;
+  int _minutesLeft = 0;
   String? _erro;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkBlock();
+  }
 
   @override
   void dispose() {
@@ -243,21 +317,56 @@ class _ResearcherLoginTabState extends State<_ResearcherLoginTab> {
     super.dispose();
   }
 
+  Future<void> _checkBlock() async {
+    final blocked = await _limiter.isBlocked();
+    final minutes = await _limiter.minutesUntilUnlock();
+    if (mounted) setState(() { _blocked = blocked; _minutesLeft = minutes; });
+  }
+
   Future<void> _entrar() async {
+    await _checkBlock();
+    if (_blocked) return;
+
     final cpf = _cpfCtrl.text.replaceAll(RegExp(r'\D'), '');
-    if (cpf.length != 11 || _senhaCtrl.text.isEmpty) {
-      setState(() => _erro = 'Preencha CPF e senha.');
+    if (!CpfValidator.isValid(cpf)) {
+      setState(() => _erro = 'CPF inválido.');
       return;
     }
+    if (_senhaCtrl.text.isEmpty) {
+      setState(() => _erro = 'Preencha a senha.');
+      return;
+    }
+
     setState(() { _loading = true; _erro = null; });
     final ok = await _repo.login(cpf, _senhaCtrl.text);
     if (!mounted) return;
     setState(() => _loading = false);
+
     if (ok) {
+      await _limiter.reset();
+      await AuditRepository().log(
+        action: 'login',
+        entity: 'researcher',
+        performedBy: '${cpf.substring(0, 3)}***',
+        details: 'Login de pesquisador',
+      );
+      if (!mounted) return;
+      // ignore: use_build_context_synchronously
       Navigator.pushReplacementNamed(context, '/admin',
           arguments: {'role': 'researcher'});
     } else {
-      setState(() => _erro = 'CPF ou senha incorretos, ou acesso ainda não aprovado.');
+      final nowBlocked = await _limiter.recordFailure();
+      final count = await _limiter.failureCount();
+      final minutes = await _limiter.minutesUntilUnlock();
+      if (mounted) {
+        setState(() {
+          _blocked = nowBlocked;
+          _minutesLeft = minutes;
+          _erro = nowBlocked
+              ? 'Acesso bloqueado por $_minutesLeft minuto(s) após $count tentativas.'
+              : 'CPF ou senha incorretos. ${5 - count} tentativa(s) restante(s).';
+        });
+      }
     }
   }
 
@@ -305,14 +414,33 @@ class _ResearcherLoginTabState extends State<_ResearcherLoginTab> {
               ),
             ),
           ),
-          if (_erro != null) ...[
+          if (_blocked)
+            Container(
+              margin: const EdgeInsets.only(top: 10),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red.shade200),
+              ),
+              child: Row(children: [
+                const Icon(Icons.lock_clock_rounded,
+                    color: Colors.red, size: 18),
+                const SizedBox(width: 8),
+                Expanded(child: Text(
+                  'Acesso bloqueado por $_minutesLeft minuto(s).',
+                  style: const TextStyle(color: Colors.red, fontSize: 13),
+                )),
+              ]),
+            )
+          else if (_erro != null) ...[
             const SizedBox(height: 10),
             Text(_erro!,
                 style: const TextStyle(color: Colors.red, fontSize: 13)),
           ],
           const SizedBox(height: 20),
           ElevatedButton(
-            onPressed: _loading ? null : _entrar,
+            onPressed: (_loading || _blocked) ? null : _entrar,
             child: _loading
                 ? const SizedBox(
                     height: 20, width: 20,

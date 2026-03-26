@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/questions_data.dart';
 import '../../providers/app_provider.dart';
+import '../../providers/accessibility_provider.dart';
 import 'widgets/question_widget.dart';
 
 class QuestionnaireScreen extends StatefulWidget {
@@ -69,6 +70,56 @@ class _QuestionnaireScreenState extends State<QuestionnaireScreen> {
       );
       setState(() => _currentIndex = prev);
     }
+  }
+
+  void _showAccessibilityMenu(BuildContext context, AccessibilityProvider acc) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40, height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text('Acessibilidade',
+                style: TextStyle(
+                    fontSize: 18, fontWeight: FontWeight.w800,
+                    color: Theme.of(context).colorScheme.onSurface)),
+            const SizedBox(height: 20),
+            SwitchListTile(
+              value: acc.largeFontEnabled,
+              onChanged: (_) => acc.toggleLargeFont(),
+              title: const Text('Fonte grande',
+                  style: TextStyle(fontWeight: FontWeight.w600)),
+              subtitle: const Text('Aumenta o tamanho do texto em 30%'),
+              activeThumbColor: AppTheme.primary,
+              secondary: const Icon(Icons.text_fields_rounded,
+                  color: AppTheme.primary),
+            ),
+            SwitchListTile(
+              value: acc.highContrastEnabled,
+              onChanged: (_) => acc.toggleHighContrast(),
+              title: const Text('Alto contraste',
+                  style: TextStyle(fontWeight: FontWeight.w600)),
+              subtitle: const Text('Preto e branco para maior visibilidade'),
+              activeThumbColor: AppTheme.primary,
+              secondary: const Icon(Icons.contrast_rounded,
+                  color: AppTheme.primary),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _finish() async {
@@ -151,6 +202,22 @@ class _QuestionnaireScreenState extends State<QuestionnaireScreen> {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
+                const Spacer(),
+                // Botão acessibilidade
+                Consumer<AccessibilityProvider>(
+                  builder: (_, acc, __) => GestureDetector(
+                    onTap: () => _showAccessibilityMenu(context, acc),
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.white12,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.accessibility_new_rounded,
+                          color: Colors.white70, size: 20),
+                    ),
+                  ),
+                ),
                 Container(
                   padding: const EdgeInsets.symmetric(
                       horizontal: 10, vertical: 3),
@@ -200,10 +267,11 @@ class _QuestionnaireScreenState extends State<QuestionnaireScreen> {
     final answered = answer != null && answer.isNotEmpty;
     final isLast = _currentIndex == kQuestions.length - 1;
 
+    final surfaceColor = Theme.of(context).colorScheme.surface;
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: surfaceColor,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.06),

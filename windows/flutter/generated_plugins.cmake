@@ -6,7 +6,9 @@ list(APPEND FLUTTER_PLUGIN_LIST
   cloud_firestore
   connectivity_plus
   firebase_core
+  flutter_tts
   geolocator_windows
+  printing
   url_launcher_windows
 )
 

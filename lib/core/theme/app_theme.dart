@@ -35,6 +35,8 @@ class AppTheme {
 
   static ThemeData get darkTheme => _buildTheme(Brightness.dark);
 
+  static ThemeData get highContrastTheme => _buildHighContrast();
+
   static ThemeData _buildTheme(Brightness brightness) {
     final isDark = brightness == Brightness.dark;
 
@@ -127,6 +129,64 @@ class AppTheme {
           if (states.contains(WidgetState.selected)) return primary;
           return null;
         }),
+      ),
+    );
+  }
+
+  static ThemeData _buildHighContrast() {
+    return ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.light,
+      colorScheme: const ColorScheme.light(
+        primary: Color(0xFF000000),
+        secondary: Color(0xFFFFFF00),
+        surface: Color(0xFFFFFFFF),
+      ),
+      scaffoldBackgroundColor: const Color(0xFFFFFFFF),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Color(0xFF000000),
+        foregroundColor: Color(0xFFFFFFFF),
+        elevation: 0,
+        centerTitle: true,
+        titleTextStyle: TextStyle(
+          color: Color(0xFFFFFFFF),
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF000000),
+          foregroundColor: const Color(0xFFFFFFFF),
+          minimumSize: const Size.fromHeight(56),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: const BorderSide(color: Color(0xFF000000), width: 2),
+          ),
+          textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: const Color(0xFF000000),
+          side: const BorderSide(color: Color(0xFF000000), width: 2),
+          minimumSize: const Size.fromHeight(56),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12)),
+          textStyle: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+        ),
+      ),
+      textTheme: const TextTheme(
+        bodyLarge: TextStyle(color: Color(0xFF000000), fontSize: 16),
+        bodyMedium: TextStyle(color: Color(0xFF000000), fontSize: 15),
+        titleLarge: TextStyle(color: Color(0xFF000000), fontWeight: FontWeight.w700),
+      ),
+      cardTheme: CardThemeData(
+        color: const Color(0xFFFFFFFF),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(color: Color(0xFF000000), width: 2),
+        ),
       ),
     );
   }

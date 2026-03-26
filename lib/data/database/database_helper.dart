@@ -24,7 +24,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 5,
+      version: 7,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -57,6 +57,27 @@ class DatabaseHelper {
     if (oldVersion < 5) {
       await db.execute("ALTER TABLE participants ADD COLUMN synced INTEGER NOT NULL DEFAULT 0");
     }
+    if (oldVersion < 6) {
+      await db.execute("ALTER TABLE responses ADD COLUMN questionnaire_version TEXT NOT NULL DEFAULT '1.0'");
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS audit_logs (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          action TEXT NOT NULL,
+          entity TEXT NOT NULL DEFAULT '',
+          entity_id TEXT NOT NULL DEFAULT '',
+          performed_by TEXT NOT NULL DEFAULT '',
+          details TEXT NOT NULL DEFAULT '',
+          timestamp INTEGER NOT NULL
+        )
+      ''');
+    }
+    if (oldVersion < 7) {
+      // Segurança v7: versão do hash de CPF, versão do TCLE, deleted_at, hash_version em researchers
+      await db.execute("ALTER TABLE participants ADD COLUMN cpf_hash_v INTEGER NOT NULL DEFAULT 1");
+      await db.execute("ALTER TABLE participants ADD COLUMN deleted_at INTEGER");
+      await db.execute("ALTER TABLE consents ADD COLUMN tcle_version TEXT NOT NULL DEFAULT '1.0'");
+      await db.execute("ALTER TABLE researchers ADD COLUMN hash_version INTEGER NOT NULL DEFAULT 1");
+    }
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -65,6 +86,7 @@ class DatabaseHelper {
         id TEXT PRIMARY KEY,
         nome TEXT NOT NULL DEFAULT '',
         cpf TEXT NOT NULL DEFAULT '',
+        cpf_hash_v INTEGER NOT NULL DEFAULT 2,
         sexo TEXT NOT NULL,
         genero TEXT NOT NULL DEFAULT '',
         gestante TEXT NOT NULL DEFAULT '',
@@ -74,6 +96,7 @@ class DatabaseHelper {
         estado TEXT NOT NULL DEFAULT '',
         escolaridade TEXT NOT NULL,
         synced INTEGER NOT NULL DEFAULT 0,
+        deleted_at INTEGER,
         created_at INTEGER NOT NULL
       )
     ''');
@@ -83,6 +106,7 @@ class DatabaseHelper {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         participant_id TEXT NOT NULL,
         aceito INTEGER NOT NULL,
+        tcle_version TEXT NOT NULL DEFAULT '1.0',
         accepted_at INTEGER NOT NULL
       )
     ''');
@@ -91,9 +115,10 @@ class DatabaseHelper {
       CREATE TABLE responses (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         participant_id TEXT NOT NULL,
-        fase TEXT NOT NULL,
+        fase TEXT NOT NULL CHECK(fase IN ('pre','pos')),
         question_id TEXT NOT NULL,
         answer TEXT NOT NULL,
+        questionnaire_version TEXT NOT NULL DEFAULT '1.0',
         timestamp INTEGER NOT NULL
       )
     ''');
@@ -109,6 +134,18 @@ class DatabaseHelper {
     ''');
 
     await db.execute('''
+      CREATE TABLE audit_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        action TEXT NOT NULL,
+        entity TEXT NOT NULL DEFAULT '',
+        entity_id TEXT NOT NULL DEFAULT '',
+        performed_by TEXT NOT NULL DEFAULT '',
+        details TEXT NOT NULL DEFAULT '',
+        timestamp INTEGER NOT NULL
+      )
+    ''');
+
+    await db.execute('''
       CREATE TABLE researchers (
         id TEXT PRIMARY KEY,
         cpf TEXT NOT NULL UNIQUE,
@@ -116,6 +153,7 @@ class DatabaseHelper {
         institution TEXT NOT NULL DEFAULT '',
         justification TEXT NOT NULL DEFAULT '',
         password_hash TEXT NOT NULL DEFAULT '',
+        hash_version INTEGER NOT NULL DEFAULT 2,
         approved INTEGER NOT NULL DEFAULT 0,
         created_at INTEGER NOT NULL
       )
@@ -126,7 +164,9 @@ class DatabaseHelper {
 
   Future<List<Map<String, dynamic>>> getPendentesSync() async {
     final db = await database;
-    return db.query('participants', where: 'synced = ?', whereArgs: [0]);
+    // Exclui participantes com deleted_at preenchido da sincronização
+    return db.query('participants',
+        where: 'synced = ? AND deleted_at IS NULL', whereArgs: [0]);
   }
 
   Future<void> marcarSincronizado(String id) async {
@@ -137,5 +177,36 @@ class DatabaseHelper {
       where: 'id = ?',
       whereArgs: [id],
     );
+  }
+
+  // ─── LGPD: direito ao esquecimento ───────────────────────────────────────
+
+  /// Apaga todos os dados pessoais de um participante (mantém apenas UUID).
+  Future<void> deleteParticipantData(String participantId) async {
+    final db = await database;
+    final now = DateTime.now().millisecondsSinceEpoch;
+
+    await db.update(
+      'participants',
+      {
+        'nome': '[removido]',
+        'cpf': '',
+        'cpf_hash_v': 0,
+        'sexo': '',
+        'genero': '',
+        'gestante': '',
+        'comunidade': '[removido]',
+        'municipio': '[removido]',
+        'estado': '',
+        'escolaridade': '',
+        'deleted_at': now,
+      },
+      where: 'id = ?',
+      whereArgs: [participantId],
+    );
+
+    // Mantém respostas para fins de pesquisa (anonymizadas), remove dados pessoais
+    await db.delete('consents',
+        where: 'participant_id = ?', whereArgs: [participantId]);
   }
 }

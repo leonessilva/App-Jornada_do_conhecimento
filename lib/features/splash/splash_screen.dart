@@ -107,9 +107,7 @@ class _SplashScreenState extends State<SplashScreen>
                 ),
               ),
             ),
-            Stack(
-            children: [
-              Center(
+            Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -185,8 +183,7 @@ class _SplashScreenState extends State<SplashScreen>
                 ),
               ),
             ],
-            ),
-          ],
+          ),
         ),
       ),
     );

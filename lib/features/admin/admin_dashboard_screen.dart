@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart' show Firebase;
 
 import '../../core/theme/app_theme.dart';
 import 'package:sqflite/sqflite.dart';
 import '../../data/database/database_helper.dart';
 import '../../core/utils/csv_exporter.dart';
+import '../../core/utils/pdf_exporter.dart';
 import '../../data/repositories/admin_repository.dart';
 import '../../data/repositories/researcher_repository.dart';
+import '../../data/repositories/audit_repository.dart';
+import '../../data/repositories/participant_repository.dart';
 import '../../data/models/participant.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
@@ -19,8 +23,12 @@ class AdminDashboardScreen extends StatefulWidget {
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   final _repo = AdminRepository();
   final _researcherRepo = ResearcherRepository();
+  final _auditRepo = AuditRepository();
   List<ParticipantStats> _all = [];
   List<Researcher> _pending = [];
+  List<AuditLog> _auditLogs = [];
+  CollectionFunnel? _funnel;
+  List<MunicipioStats> _municipioStats = [];
   bool _loading = true;
   bool _syncing = false;
   int? _cloudTotal;
@@ -45,25 +53,51 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final now = DateTime.now();
     final stamp =
         '${now.year}${now.month.toString().padLeft(2,'0')}${now.day.toString().padLeft(2,'0')}';
+    await _auditRepo.log(
+      action: 'export',
+      entity: 'data',
+      performedBy: _role,
+      details: 'Tipo: $tipo',
+    );
     if (tipo == 'resumo') {
       final csv = CsvExporter.buildSummary(_all);
       CsvExporter.download(csv, 'jornada_resumo_$stamp.csv');
-    } else {
+    } else if (tipo == 'respostas') {
       final rows = await _repo.getAllResponses();
       final csv = CsvExporter.buildResponses(rows);
       CsvExporter.download(csv, 'jornada_respostas_$stamp.csv');
+    } else if (tipo == 'pdf') {
+      await PdfExporter.exportSummary(_all);
     }
+    _loadAuditLogs();
   }
 
   Future<void> _load() async {
     setState(() => _loading = true);
     final data = await _repo.getAllStats();
     final pending = await _researcherRepo.getPending();
-    if (mounted) setState(() { _all = data; _pending = pending; _loading = false; });
+    final funnel = await _repo.getCollectionFunnel();
+    final municipioStats = await _repo.getMunicipioStats();
+    if (mounted) {
+      setState(() {
+        _all = data;
+        _pending = pending;
+        _funnel = funnel;
+        _municipioStats = municipioStats;
+        _loading = false;
+      });
+    }
     _fetchCloudCount();
+    _loadAuditLogs();
+  }
+
+  Future<void> _loadAuditLogs() async {
+    final logs = await _auditRepo.getRecent();
+    if (mounted) setState(() => _auditLogs = logs);
   }
 
   Future<void> _fetchCloudCount() async {
+    if (Firebase.apps.isEmpty) return;
     try {
       final snap = await FirebaseFirestore.instance
           .collection('participantes')
@@ -74,6 +108,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Future<void> _syncFromCloud() async {
+    if (Firebase.apps.isEmpty) {
+      setState(() => _syncing = false);
+      return;
+    }
     setState(() => _syncing = true);
     try {
       final snap = await FirebaseFirestore.instance
@@ -195,6 +233,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   Text('Exportar respostas (CSV)'),
                 ]),
               ),
+              PopupMenuItem(
+                value: 'pdf',
+                child: Row(children: [
+                  Icon(Icons.picture_as_pdf_outlined, size: 18, color: Colors.red),
+                  SizedBox(width: 10),
+                  Text('Exportar relatório (PDF)'),
+                ]),
+              ),
             ],
           ),
           IconButton(
@@ -219,6 +265,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     const SizedBox(height: 16),
                     _statsGrid(),
                     const SizedBox(height: 20),
+                    _sectionTitle('Progresso da Coleta'),
+                    const SizedBox(height: 12),
+                    if (_funnel != null) _collectionFunnel(_funnel!),
+                    const SizedBox(height: 20),
                     _sectionTitle('Evolução Pré × Pós por Gênero'),
                     const SizedBox(height: 12),
                     _dumbellChart(_groupBy((p) => p.genero.isNotEmpty ? p.genero : p.sexo)),
@@ -237,6 +287,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       _dumbellChart(_groupBy((p) => p.gestante != null ? 'Grávida: ${p.gestante}' : 'Não se aplica')),
                       const SizedBox(height: 20),
                     ],
+                    if (_municipioStats.isNotEmpty) ...[
+                      _sectionTitle('Desempenho por Município'),
+                      const SizedBox(height: 12),
+                      _municipioHeatmap(),
+                      const SizedBox(height: 20),
+                    ],
                     if (_role == 'master' && _pending.isNotEmpty) ...[
                       _sectionTitle('Solicitações de Acesso (${_pending.length})'),
                       const SizedBox(height: 12),
@@ -246,7 +302,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     _sectionTitle('Participantes (${_filtered.length})'),
                     const SizedBox(height: 12),
                     _participantsTable(),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 20),
+                    if (_role == 'master' && _auditLogs.isNotEmpty) ...[
+                      _sectionTitle('Log de Auditoria'),
+                      const SizedBox(height: 12),
+                      _auditLogSection(),
+                      const SizedBox(height: 32),
+                    ],
                   ],
                 ),
               ),
@@ -734,17 +796,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13),
             dataRowMaxHeight: 52,
             columnSpacing: 16,
-            columns: const [
-              DataColumn(label: Text('#')),
-              DataColumn(label: Text('Nome')),
-              DataColumn(label: Text('CPF')),
-              DataColumn(label: Text('Sexo')),
-              DataColumn(label: Text('Faixa')),
-              DataColumn(label: Text('Município')),
-              DataColumn(label: Text('UF')),
-              DataColumn(label: Text('Pré')),
-              DataColumn(label: Text('Pós')),
-              DataColumn(label: Text('Ganho')),
+            columns: [
+              const DataColumn(label: Text('#')),
+              const DataColumn(label: Text('Nome')),
+              const DataColumn(label: Text('CPF')),
+              const DataColumn(label: Text('Sexo')),
+              const DataColumn(label: Text('Faixa')),
+              const DataColumn(label: Text('Município')),
+              const DataColumn(label: Text('UF')),
+              const DataColumn(label: Text('Pré')),
+              const DataColumn(label: Text('Pós')),
+              const DataColumn(label: Text('Ganho')),
+              if (_role == 'master')
+                const DataColumn(label: Text('LGPD')),
             ],
             rows: List.generate(data.length, (i) {
               final s = data[i];
@@ -784,6 +848,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                 : Colors.red,
                           ),
                         )),
+                  if (_role == 'master')
+                    DataCell(
+                      Tooltip(
+                        message: 'Apagar dados pessoais (LGPD)',
+                        child: IconButton(
+                          icon: const Icon(Icons.delete_outline_rounded,
+                              color: Colors.red, size: 18),
+                          onPressed: () => _confirmDeleteParticipant(p.id, p.nome),
+                        ),
+                      ),
+                    ),
                 ],
               );
             }),
@@ -852,6 +927,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     child: OutlinedButton.icon(
                       onPressed: () async {
                         await _researcherRepo.reject(r.id);
+                        await _auditRepo.log(
+                          action: 'reject',
+                          entity: 'researcher',
+                          entityId: r.id,
+                          performedBy: 'master',
+                          details: r.name,
+                        );
                         _load();
                       },
                       icon: const Icon(Icons.close, size: 16),
@@ -866,6 +948,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     child: ElevatedButton.icon(
                       onPressed: () async {
                         await _researcherRepo.approve(r.id);
+                        await _auditRepo.log(
+                          action: 'approve',
+                          entity: 'researcher',
+                          entityId: r.id,
+                          performedBy: 'master',
+                          details: r.name,
+                        );
                         _load();
                       },
                       icon: const Icon(Icons.check, size: 16),
@@ -904,14 +993,352 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
+  Future<void> _confirmDeleteParticipant(String id, String nome) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Row(children: [
+          Icon(Icons.warning_amber_rounded, color: Colors.red),
+          SizedBox(width: 8),
+          Text('Apagar dados pessoais'),
+        ]),
+        content: Text(
+          'Isso remove nome, CPF e dados de identificação de "$nome" '
+          'em conformidade com a LGPD (direito ao esquecimento).\n\n'
+          'As respostas do questionário serão mantidas de forma anônima.\n\n'
+          'Esta ação não pode ser desfeita.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Apagar dados'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await ParticipantRepository().deletePersonalData(id);
+      await _auditRepo.log(
+        action: 'delete',
+        entity: 'participant',
+        entityId: id,
+        performedBy: _role,
+        details: 'Exclusão LGPD — dados pessoais removidos',
+      );
+      _load();
+    }
+  }
+
   String _maskCpf(String cpf) {
     final d = cpf.replaceAll(RegExp(r'\D'), '');
     if (d.length != 11) return cpf;
     return '${d.substring(0, 3)}.***.***.${d.substring(9)}';
+  }
+
+  // ─── Funil de coleta ────────────────────────────────────────────
+
+  Widget _collectionFunnel(CollectionFunnel f) {
+    final steps = [
+      _FunnelStep('Cadastrados', f.cadastrados, Icons.person_add_outlined, AppTheme.primary),
+      _FunnelStep('Pré-teste', f.comPreTeste, Icons.assignment_outlined, const Color(0xFF2980B9)),
+      _FunnelStep('Vídeos', f.comVideos, Icons.play_lesson_rounded, const Color(0xFF8E44AD)),
+      _FunnelStep('Pós-teste', f.comPosTeste, Icons.assignment_turned_in_outlined, const Color(0xFF27AE60)),
+      _FunnelStep('Concluídos', f.concluidos, Icons.emoji_events_rounded, AppTheme.accent),
+    ];
+    final maxVal = f.cadastrados == 0 ? 1 : f.cadastrados;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(
+          color: Colors.black.withValues(alpha: 0.05),
+          blurRadius: 8, offset: const Offset(0, 2),
+        )],
+      ),
+      child: Column(
+        children: steps.map((s) {
+          final pct = maxVal > 0 ? s.count / maxVal : 0.0;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 130,
+                  child: Row(
+                    children: [
+                      Icon(s.icon, size: 16, color: s.color),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(s.label,
+                            style: const TextStyle(
+                                fontSize: 12, fontWeight: FontWeight.w600,
+                                color: AppTheme.textDark)),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: Stack(
+                    children: [
+                      Container(
+                          height: 22,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(4),
+                          )),
+                      FractionallySizedBox(
+                        widthFactor: pct.clamp(0.0, 1.0),
+                        child: Container(
+                          height: 22,
+                          decoration: BoxDecoration(
+                            color: s.color.withValues(alpha: 0.8),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 50,
+                  child: Text(
+                    '${s.count} (${(pct * 100).toStringAsFixed(0)}%)',
+                    style: TextStyle(
+                        fontSize: 11, fontWeight: FontWeight.w700,
+                        color: s.color),
+                    textAlign: TextAlign.end,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  // ─── Mapa de calor por município ────────────────────────────────
+
+  Widget _municipioHeatmap() {
+    if (_municipioStats.isEmpty) return _emptyChart();
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(
+          color: Colors.black.withValues(alpha: 0.05),
+          blurRadius: 8, offset: const Offset(0, 2),
+        )],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            _legendDot(AppTheme.primary, 'Pré-teste'),
+            const SizedBox(width: 16),
+            _legendDot(AppTheme.accent, 'Pós-teste'),
+          ]),
+          const SizedBox(height: 12),
+          ..._municipioStats.map((s) {
+            final maxBar = 100.0;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '${s.municipio}  (n=${s.count})',
+                          style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.textDark),
+                        ),
+                      ),
+                      if (s.avgPos != null && s.avgPre != null)
+                        Text(
+                          '${(s.avgPos! - s.avgPre!) >= 0 ? '+' : ''}${(s.avgPos! - s.avgPre!).toStringAsFixed(0)}%',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: (s.avgPos! - s.avgPre!) >= 0
+                                ? const Color(0xFF27AE60)
+                                : Colors.red,
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  // Barra pré
+                  if (s.avgPre != null)
+                    _heatBar(s.avgPre! / maxBar, AppTheme.primary,
+                        '${s.avgPre!.toStringAsFixed(0)}%'),
+                  const SizedBox(height: 3),
+                  // Barra pós
+                  if (s.avgPos != null)
+                    _heatBar(s.avgPos! / maxBar, AppTheme.accent,
+                        '${s.avgPos!.toStringAsFixed(0)}%'),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _heatBar(double fraction, Color color, String label) {
+    return LayoutBuilder(builder: (_, c) {
+      final w = c.maxWidth;
+      return Stack(
+        children: [
+          Container(
+            height: 16,
+            width: w,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          Container(
+            height: 16,
+            width: (fraction.clamp(0.0, 1.0) * w),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.75),
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          Positioned(
+            right: 4,
+            top: 1,
+            child: Text(label,
+                style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                    color: color)),
+          ),
+        ],
+      );
+    });
+  }
+
+  // ─── Log de auditoria ───────────────────────────────────────────
+
+  Widget _auditLogSection() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(
+          color: Colors.black.withValues(alpha: 0.05),
+          blurRadius: 8, offset: const Offset(0, 2),
+        )],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Column(
+          children: _auditLogs.take(20).map((log) {
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: Colors.grey.shade100),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 32, height: 32,
+                    decoration: BoxDecoration(
+                      color: _auditColor(log.action).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(_auditIcon(log.action),
+                        size: 16, color: _auditColor(log.action)),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${log.action.toUpperCase()} — ${log.entity}',
+                          style: const TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.w700,
+                              color: AppTheme.textDark),
+                        ),
+                        if (log.details.isNotEmpty)
+                          Text(log.details,
+                              style: const TextStyle(
+                                  fontSize: 11, color: AppTheme.textMedium)),
+                      ],
+                    ),
+                  ),
+                  Text(
+                    _fmtTime(log.timestamp),
+                    style: const TextStyle(
+                        fontSize: 10, color: AppTheme.textMedium),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
+  IconData _auditIcon(String action) {
+    switch (action) {
+      case 'export': return Icons.download_rounded;
+      case 'login': return Icons.login_rounded;
+      case 'approve': return Icons.check_circle_outline;
+      case 'reject': return Icons.cancel_outlined;
+      case 'sync': return Icons.cloud_sync_rounded;
+      default: return Icons.info_outline;
+    }
+  }
+
+  Color _auditColor(String action) {
+    switch (action) {
+      case 'export': return const Color(0xFF2980B9);
+      case 'login': return AppTheme.primary;
+      case 'approve': return const Color(0xFF27AE60);
+      case 'reject': return Colors.red;
+      case 'sync': return const Color(0xFF8E44AD);
+      default: return AppTheme.textMedium;
+    }
+  }
+
+  String _fmtTime(DateTime dt) {
+    return '${dt.day.toString().padLeft(2,'0')}/'
+        '${dt.month.toString().padLeft(2,'0')} '
+        '${dt.hour.toString().padLeft(2,'0')}:'
+        '${dt.minute.toString().padLeft(2,'0')}';
   }
 }
 
 class _GroupStats {
   final List<double> pre = [];
   final List<double> pos = [];
+}
+
+class _FunnelStep {
+  final String label;
+  final int count;
+  final IconData icon;
+  final Color color;
+  const _FunnelStep(this.label, this.count, this.icon, this.color);
 }

@@ -1,13 +1,58 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/tts_service.dart';
+import '../../core/widgets/tts_button.dart';
+import '../../providers/accessibility_provider.dart';
 
-class InstructionScreen extends StatelessWidget {
+class InstructionScreen extends StatefulWidget {
   final String fase;
   const InstructionScreen({super.key, required this.fase});
 
   @override
+  State<InstructionScreen> createState() => _InstructionScreenState();
+}
+
+class _InstructionScreenState extends State<InstructionScreen> {
+  static const _textoPre =
+      'Perguntas iniciais. Antes dos vídeos, vamos conhecer o que você já sabe. '
+      'Como funciona? '
+      'Primeiro: Toque na resposta. Cada pergunta tem opções para escolher. Toque na que você achar certa. '
+      'Segundo: Perguntas com notas. Algumas perguntas pedem para você dar uma nota de um a cinco. Quanto maior a nota, mais você concorda. '
+      'Terceiro: Perguntas abertas. Algumas perguntas pedem que você escreva. Não existe resposta certa, escreva o que você pensa. '
+      'Quarto: Suas respostas são privadas. Ninguém vai saber o que você respondeu. Os dados são usados só para pesquisa. '
+      'Quinto: Sem pressa. Responda com calma. Não tem tempo limite. '
+      'Quando estiver pronto, toque em Entendi, vamos começar.';
+
+  static const _textoPos =
+      'Perguntas finais. Você já assistiu os vídeos, agora responda de novo as mesmas perguntas. '
+      'As instruções são as mesmas de antes. Toque na resposta que você achar certa. '
+      'Suas respostas são privadas e não há tempo limite. '
+      'Quando estiver pronto, toque em Entendi, vamos começar.';
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final acc = context.read<AccessibilityProvider>();
+      if (acc.autoTtsEnabled) {
+        TtsService().speak(
+          widget.fase == 'pos' ? _textoPos : _textoPre,
+        );
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    TtsService().stop();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final isPos = fase == 'pos';
+    final isPos = widget.fase == 'pos';
 
     return Scaffold(
       body: Container(
@@ -49,6 +94,13 @@ class InstructionScreen extends StatelessWidget {
                     fontSize: 14,
                     height: 1.4),
                 textAlign: TextAlign.center,
+              ),
+
+              const SizedBox(height: 16),
+              TtsButton(
+                text: isPos ? _textoPos : _textoPre,
+                label: 'Ouvir as instruções',
+                color: Colors.white,
               ),
 
               const SizedBox(height: 24),
@@ -127,7 +179,7 @@ class InstructionScreen extends StatelessWidget {
                     onPressed: () => Navigator.pushReplacementNamed(
                       context,
                       '/questionnaire',
-                      arguments: fase,
+                      arguments: widget.fase,
                     ),
                     child: const Row(
                       mainAxisAlignment: MainAxisAlignment.center,

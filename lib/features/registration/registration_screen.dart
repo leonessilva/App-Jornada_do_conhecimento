@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/security/cpf_validator.dart';
+import '../../providers/accessibility_provider.dart';
 import '../../providers/app_provider.dart';
 
 class _CpfInputFormatter extends TextInputFormatter {
@@ -115,6 +117,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       return;
     }
     try {
+      final esc = _escolaridade ?? 'Não informado';
       await context.read<AppProvider>().saveParticipant(
             nome: _nomeCtrl.text.trim(),
             cpf: _cpfCtrl.text.replaceAll(RegExp(r'\D'), ''),
@@ -125,8 +128,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             comunidade: _comunidadeCtrl.text.trim(),
             municipio: _municipioCtrl.text.trim(),
             estado: _estado!,
-            escolaridade: _escolaridade ?? 'Não informado',
+            escolaridade: esc,
           );
+      if (!mounted) return;
+      // Ativa narração automática se baixa escolaridade
+      await context.read<AccessibilityProvider>().avaliarEscolaridade(esc);
       if (!mounted) return;
       Navigator.pushReplacementNamed(context, '/instruction',
           arguments: 'pre');
@@ -177,8 +183,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 keyboardType: TextInputType.number,
                 inputFormatters: [_CpfInputFormatter()],
                 validator: (v) {
-                  final digits = (v ?? '').replaceAll(RegExp(r'\D'), '');
-                  if (digits.length != 11) return 'CPF inválido (11 dígitos)';
+                  if (!CpfValidator.isValid(v ?? '')) {
+                    return 'CPF inválido — verifique os números';
+                  }
                   return null;
                 },
               ),

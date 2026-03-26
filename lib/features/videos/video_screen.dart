@@ -48,6 +48,20 @@ class _VideoScreenState extends State<VideoScreen> {
   final Set<int> _assistidos = {};
   int? _expanded; // índice do card expandido
 
+  Future<void> _showSummaryAndContinue(BuildContext context) async {
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const _VideoSummarySheet(),
+    );
+    if (!context.mounted) return;
+    await context.read<AppProvider>().finishVideos();
+    if (context.mounted) {
+      Navigator.pushReplacementNamed(context, '/instruction', arguments: 'pos');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final todos = _assistidos.length == _videos.length;
@@ -130,13 +144,7 @@ class _VideoScreenState extends State<VideoScreen> {
                             borderRadius: BorderRadius.circular(14)),
                       ),
                       onPressed: todos
-                          ? () async {
-                              await context.read<AppProvider>().finishVideos();
-                              if (context.mounted) {
-                                Navigator.pushReplacementNamed(context, '/instruction',
-                                    arguments: 'pos');
-                              }
-                            }
+                          ? () => _showSummaryAndContinue(context)
                           : null,
                       child: const Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -306,6 +314,10 @@ class _PlayerPanelState extends State<_PlayerPanel> {
               t.cancel();
             }
           });
+          // Ao completar, marca automaticamente como assistido
+          if (_progress >= 1.0 && !widget.jaAssistido) {
+            widget.onConcluido();
+          }
         },
       );
     }
@@ -496,4 +508,202 @@ class _Video {
     required this.duracao,
     required this.icone,
   });
+}
+
+// ─── Resumo pós-vídeo ─────────────────────────────────────────────────────────
+
+const _summaryPoints = [
+  _SummaryPoint(
+    icon: Icons.science_outlined,
+    color: Color(0xFF8E44AD),
+    titulo: 'Tipos de agrotóxicos',
+    texto: 'Cada agrotóxico age de forma diferente no corpo. Inseticidas, herbicidas e fungicidas têm vias de intoxicação distintas.',
+  ),
+  _SummaryPoint(
+    icon: Icons.security_outlined,
+    color: Color(0xFF2980B9),
+    titulo: 'EPI salva vidas',
+    texto: 'O uso completo do EPI (máscara, luvas, botas e roupa protetora) reduz drasticamente a absorção de agrotóxicos.',
+  ),
+  _SummaryPoint(
+    icon: Icons.agriculture_outlined,
+    color: Color(0xFF27AE60),
+    titulo: 'Boas práticas no campo',
+    texto: 'Respeite o período de carência, devolva embalagens, faça a tríplice lavagem e nunca misture produtos sem orientação.',
+  ),
+  _SummaryPoint(
+    icon: Icons.water_outlined,
+    color: Color(0xFF16A085),
+    titulo: 'Proteção ambiental',
+    texto: 'Agrotóxicos contaminam rios, solos e animais. O uso consciente protege o Rio e garante água limpa para a comunidade.',
+  ),
+  _SummaryPoint(
+    icon: Icons.local_hospital_outlined,
+    color: Color(0xFFE74C3C),
+    titulo: 'Em caso de intoxicação',
+    texto: 'Tontura, náusea, visão turva ou formigamento são sinais de alerta. Procure a UBS imediatamente e leve a embalagem do produto.',
+  ),
+];
+
+class _SummaryPoint {
+  final IconData icon;
+  final Color color;
+  final String titulo;
+  final String texto;
+  const _SummaryPoint({
+    required this.icon,
+    required this.color,
+    required this.titulo,
+    required this.texto,
+  });
+}
+
+class _VideoSummarySheet extends StatelessWidget {
+  const _VideoSummarySheet();
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.92,
+      minChildSize: 0.6,
+      maxChildSize: 0.95,
+      builder: (_, controller) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          children: [
+            // Handle
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            // Header
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 8),
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryPale,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.lightbulb_rounded,
+                        color: AppTheme.primary, size: 32),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'O que você aprendeu',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                      color: AppTheme.primaryDark,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Pontos-chave dos vídeos sobre agrotóxicos',
+                    style: TextStyle(fontSize: 13, color: AppTheme.textMedium),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+            const Divider(),
+            // Lista de pontos
+            Expanded(
+              child: ListView.separated(
+                controller: controller,
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+                itemCount: _summaryPoints.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                itemBuilder: (_, i) {
+                  final p = _summaryPoints[i];
+                  return Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: p.color.withValues(alpha: 0.07),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                          color: p.color.withValues(alpha: 0.25)),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: p.color.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(p.icon, color: p.color, size: 22),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                p.titulo,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 14,
+                                  color: p.color,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                p.texto,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: AppTheme.textDark,
+                                  height: 1.45,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+            // Botão continuar
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primary,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size.fromHeight(52),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.check_circle_outline_rounded),
+                    SizedBox(width: 10),
+                    Text('Entendi! Ir para o pós-teste',
+                        style: TextStyle(
+                            fontSize: 15, fontWeight: FontWeight.w800)),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
