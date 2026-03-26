@@ -1,7 +1,7 @@
 import 'dart:convert';
-import 'package:web/web.dart' as web;
 
 import '../../data/repositories/admin_repository.dart';
+import 'file_downloader.dart';
 
 class CsvExporter {
   /// Exporta resumo: um participante por linha
@@ -53,20 +53,11 @@ class CsvExporter {
     return buf.toString();
   }
 
-  /// Dispara o download no browser
-  static void download(String csvContent, String filename) {
-    // BOM UTF-8 para Excel reconhecer acentos
+  /// Inicia download/compartilhamento do CSV (Web: âncora; Mobile: share sheet).
+  static Future<void> download(String csvContent, String filename) async {
+    // BOM UTF-8 para Excel reconhecer acentos corretamente
     final bytes = utf8.encode('\uFEFF$csvContent');
-    final base64str = base64Encode(bytes);
-    final dataUri = 'data:text/csv;charset=utf-8;base64,$base64str';
-
-    final anchor =
-        web.document.createElement('a') as web.HTMLAnchorElement;
-    anchor.href = dataUri;
-    anchor.download = filename;
-    web.document.body!.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
+    await downloadFile(bytes, filename);
   }
 
   static String _q(String s) =>

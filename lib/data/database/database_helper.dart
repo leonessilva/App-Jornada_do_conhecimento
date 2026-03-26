@@ -24,7 +24,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 7,
+      version: 8,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -77,6 +77,17 @@ class DatabaseHelper {
       await db.execute("ALTER TABLE participants ADD COLUMN deleted_at INTEGER");
       await db.execute("ALTER TABLE consents ADD COLUMN tcle_version TEXT NOT NULL DEFAULT '1.0'");
       await db.execute("ALTER TABLE researchers ADD COLUMN hash_version INTEGER NOT NULL DEFAULT 1");
+    }
+    if (oldVersion < 8) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS sync_queue (
+          id TEXT PRIMARY KEY,
+          type TEXT NOT NULL,
+          participant_id TEXT NOT NULL,
+          payload TEXT NOT NULL,
+          created_at INTEGER NOT NULL
+        )
+      ''');
     }
   }
 
@@ -158,6 +169,16 @@ class DatabaseHelper {
         created_at INTEGER NOT NULL
       )
     ''');
+
+    await db.execute('''
+      CREATE TABLE sync_queue (
+        id TEXT PRIMARY KEY,
+        type TEXT NOT NULL,
+        participant_id TEXT NOT NULL,
+        payload TEXT NOT NULL,
+        created_at INTEGER NOT NULL
+      )
+    ''');
   }
 
   // ─── Sync helpers ────────────────────────────────────────────────────────
@@ -177,6 +198,29 @@ class DatabaseHelper {
       where: 'id = ?',
       whereArgs: [id],
     );
+  }
+
+  // ─── Fila de retry offline ───────────────────────────────────────────────
+
+  Future<void> addToSyncQueue(String id, String type, String participantId, String payload) async {
+    final db = await database;
+    await db.insert('sync_queue', {
+      'id': id,
+      'type': type,
+      'participant_id': participantId,
+      'payload': payload,
+      'created_at': DateTime.now().millisecondsSinceEpoch,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<List<Map<String, dynamic>>> getSyncQueue() async {
+    final db = await database;
+    return db.query('sync_queue', orderBy: 'created_at ASC');
+  }
+
+  Future<void> removeSyncQueueItem(String id) async {
+    final db = await database;
+    await db.delete('sync_queue', where: 'id = ?', whereArgs: [id]);
   }
 
   // ─── LGPD: direito ao esquecimento ───────────────────────────────────────

@@ -11,33 +11,32 @@ service cloud.firestore {
     // ─── Participantes ────────────────────────────────────────────────────────
     match /participantes/{participantId} {
 
-      // Escrita: apenas campos esperados (sem nome plaintext).
+      // Escrita: usuário autenticado (anônimo ou não) + campos permitidos.
       // cpf_hash é HMAC-SHA256 com pepper — não reversível.
-      allow create, update: if request.resource.data.keys().hasOnly([
-        'id', 'cpf_hash',
-        'sexo', 'genero', 'gestante',
-        'idade_faixa', 'comunidade', 'municipio', 'estado',
-        'escolaridade', 'synced', 'created_at',
-        'etapa_atual', 'indice_pergunta', 'fase', 'progress_updated_at'
-      ]);
+      allow create, update: if request.auth != null
+        && request.resource.data.keys().hasOnly([
+          'id', 'cpf_hash',
+          'sexo', 'genero', 'gestante',
+          'idade_faixa', 'comunidade', 'municipio', 'estado',
+          'escolaridade', 'synced', 'created_at',
+          'etapa_atual', 'indice_pergunta', 'fase', 'progress_updated_at'
+        ]);
 
-      // Leitura permitida — necessária para restauração em novo dispositivo.
-      // Não há nome nem CPF real armazenados (apenas hash não reversível).
-      allow read: if true;
+      // Leitura: apenas usuários autenticados (restauração de sessão).
+      allow read: if request.auth != null;
 
       // Exclusão proibida pelo app (LGPD: soft-delete local).
       allow delete: if false;
 
       // ── Respostas (subcoleção) ─────────────────────────────────────────────
       match /respostas/{respostaId} {
-        // Escrita: apenas campos esperados de uma resposta.
-        allow create, update: if request.resource.data.keys().hasOnly([
-          'participant_id', 'fase', 'question_id', 'answer',
-          'questionnaire_version', 'timestamp'
-        ]);
+        allow create, update: if request.auth != null
+          && request.resource.data.keys().hasOnly([
+            'participant_id', 'fase', 'question_id', 'answer',
+            'questionnaire_version', 'timestamp'
+          ]);
 
-        // Leitura permitida — necessária para restauração de sessão.
-        allow read: if true;
+        allow read: if request.auth != null;
 
         allow delete: if false;
       }

@@ -1,7 +1,11 @@
+import 'dart:convert';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
+import 'package:uuid/uuid.dart';
 import '../data/database/database_helper.dart';
 import '../data/models/progress_model.dart';
 import '../data/models/response_model.dart';
@@ -24,14 +28,31 @@ class SyncService {
   final status = ValueNotifier<SyncStatus>(SyncStatus.idle);
   final pendingCount = ValueNotifier<int>(0);
 
+  /// Garante que há um usuário anônimo autenticado antes de acessar o Firestore.
+  Future<void> _ensureAuth() async {
+    if (!_firebaseReady) return;
+    final auth = FirebaseAuth.instance;
+    if (auth.currentUser == null) {
+      await auth.signInAnonymously();
+      debugPrint('[SyncService] signed in anonymously: ${auth.currentUser?.uid}');
+    }
+  }
+
   /// Inicia escuta de conectividade e sincroniza ao reconectar.
   void init() {
     _refreshPendingCount();
+    _ensureAuth();
     Connectivity().onConnectivityChanged.listen((results) {
       final connected = results.any((r) =>
           r == ConnectivityResult.wifi || r == ConnectivityResult.mobile);
-      if (connected) syncPendentes();
+      if (connected) _syncAll();
     });
+  }
+
+  Future<void> _syncAll() async {
+    await _ensureAuth();
+    await syncPendentes();
+    await _processQueue();
   }
 
   Future<void> _refreshPendingCount() async {
@@ -82,30 +103,41 @@ class SyncService {
   // ─── Sync de progresso ────────────────────────────────────────────────────
 
   /// Atualiza etapa/progresso do participante no Firestore.
+  /// Se offline ou Firebase indisponível, enfileira para retry.
   Future<void> updateProgress(String participantId, ProgressModel progress) async {
-    if (!_firebaseReady) return;
+    final payload = {
+      'etapa_atual': progress.etapaAtual,
+      'indice_pergunta': progress.indicePergunta,
+      'fase': progress.fase,
+      'progress_updated_at': progress.updatedAt.millisecondsSinceEpoch,
+    };
+    if (!_firebaseReady) {
+      await _enqueue('progress', participantId, payload);
+      return;
+    }
     try {
       await _firestore!
           .collection('participantes')
           .doc(participantId)
-          .set({
-            'etapa_atual': progress.etapaAtual,
-            'indice_pergunta': progress.indicePergunta,
-            'fase': progress.fase,
-            'progress_updated_at': progress.updatedAt.millisecondsSinceEpoch,
-          }, SetOptions(merge: true));
+          .set(payload, SetOptions(merge: true));
     } catch (e) {
-      debugPrint('[SyncService] updateProgress error: $e');
+      debugPrint('[SyncService] updateProgress error: $e — enfileirando');
+      await _enqueue('progress', participantId, payload);
     }
   }
 
   // ─── Sync de respostas ────────────────────────────────────────────────────
 
   /// Grava uma resposta na subcoleção do participante no Firestore.
+  /// Se offline ou Firebase indisponível, enfileira para retry.
   Future<void> syncResponse(String participantId, ResponseModel response) async {
-    if (!_firebaseReady) return;
+    final docId = '${response.fase}_${response.questionId}';
+    final payload = {...response.toMap(), '_doc_id': docId};
+    if (!_firebaseReady) {
+      await _enqueue('response', participantId, payload);
+      return;
+    }
     try {
-      final docId = '${response.fase}_${response.questionId}';
       await _firestore!
           .collection('participantes')
           .doc(participantId)
@@ -113,7 +145,51 @@ class SyncService {
           .doc(docId)
           .set(response.toMap());
     } catch (e) {
-      debugPrint('[SyncService] syncResponse error: $e');
+      debugPrint('[SyncService] syncResponse error: $e — enfileirando');
+      await _enqueue('response', participantId, payload);
+    }
+  }
+
+  // ─── Fila de retry offline ────────────────────────────────────────────────
+
+  Future<void> _enqueue(String type, String participantId, Map<String, dynamic> payload) async {
+    final id = const Uuid().v4();
+    await _db.addToSyncQueue(id, type, participantId, jsonEncode(payload));
+  }
+
+  /// Processa todos os itens pendentes na fila de retry.
+  Future<void> _processQueue() async {
+    if (!_firebaseReady) return;
+    final items = await _db.getSyncQueue();
+    if (items.isEmpty) return;
+
+    for (final item in items) {
+      try {
+        final id = item['id'] as String;
+        final type = item['type'] as String;
+        final participantId = item['participant_id'] as String;
+        final payload = jsonDecode(item['payload'] as String) as Map<String, dynamic>;
+
+        if (type == 'progress') {
+          await _firestore!
+              .collection('participantes')
+              .doc(participantId)
+              .set(payload, SetOptions(merge: true));
+        } else if (type == 'response') {
+          final docId = payload['_doc_id'] as String;
+          final data = Map<String, dynamic>.from(payload)..remove('_doc_id');
+          await _firestore!
+              .collection('participantes')
+              .doc(participantId)
+              .collection('respostas')
+              .doc(docId)
+              .set(data);
+        }
+        await _db.removeSyncQueueItem(id);
+      } catch (e) {
+        debugPrint('[SyncService] _processQueue error: $e');
+        break; // Para na primeira falha — tenta novamente ao reconectar
+      }
     }
   }
 

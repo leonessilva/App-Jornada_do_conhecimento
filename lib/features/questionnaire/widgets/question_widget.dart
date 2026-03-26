@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:provider/provider.dart';
 
@@ -26,6 +27,7 @@ class QuestionWidget extends StatefulWidget {
 class _QuestionWidgetState extends State<QuestionWidget> {
   final FlutterTts _tts = FlutterTts();
   bool _speaking = false;
+  String? _lastSelected; // controla o pulso visual de confirmação
 
   @override
   void initState() {
@@ -84,6 +86,24 @@ class _QuestionWidgetState extends State<QuestionWidget> {
       setState(() => _speaking = true);
       await _tts.speak(widget.question.texto);
     }
+  }
+
+  /// Chama o callback, vibra e, se autoTTS ativo, confirma em áudio a escolha.
+  void _selectAnswer(String opcao) {
+    widget.onAnswerSelected(opcao);
+    if (kIsWeb) return;
+    // Vibração curta de confirmação tátil
+    HapticFeedback.lightImpact();
+    // Feedback visual: "pulsa" o card selecionado
+    setState(() => _lastSelected = opcao);
+    Future.delayed(const Duration(milliseconds: 180), () {
+      if (mounted) setState(() => _lastSelected = null);
+    });
+    final autoTts = context.read<AccessibilityProvider>().autoTtsEnabled;
+    if (!autoTts) return;
+    _tts.stop();
+    setState(() => _speaking = false);
+    _tts.speak('Você escolheu: $opcao');
   }
 
   @override
@@ -199,9 +219,13 @@ class _QuestionWidgetState extends State<QuestionWidget> {
           final borderColor = selected
               ? AppTheme.primary
               : (isDark ? const Color(0xFF3A4F3A) : const Color(0xFFE5DFD3));
+          final isPulsing = _lastSelected == opcao;
           return GestureDetector(
-            onTap: () => widget.onAnswerSelected(opcao),
-            child: AnimatedContainer(
+            onTap: () => _selectAnswer(opcao),
+            child: AnimatedScale(
+              scale: isPulsing ? 1.03 : 1.0,
+              duration: const Duration(milliseconds: 120),
+              child: AnimatedContainer(
               duration: const Duration(milliseconds: 150),
               margin: const EdgeInsets.only(bottom: 10),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
@@ -269,6 +293,7 @@ class _QuestionWidgetState extends State<QuestionWidget> {
                 ],
               ),
             ),
+            ),
           );
         }).toList(),
       );
@@ -289,7 +314,7 @@ class _QuestionWidgetState extends State<QuestionWidget> {
             final val = opcoes[i];
             final selected = widget.selectedAnswer == val;
             return GestureDetector(
-              onTap: () => widget.onAnswerSelected(val),
+              onTap: () => _selectAnswer(val),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 150),
                 width: 46,

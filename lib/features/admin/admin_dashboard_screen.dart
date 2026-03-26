@@ -61,11 +61,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
     if (tipo == 'resumo') {
       final csv = CsvExporter.buildSummary(_all);
-      CsvExporter.download(csv, 'jornada_resumo_$stamp.csv');
+      await CsvExporter.download(csv, 'jornada_resumo_$stamp.csv');
     } else if (tipo == 'respostas') {
       final rows = await _repo.getAllResponses();
       final csv = CsvExporter.buildResponses(rows);
-      CsvExporter.download(csv, 'jornada_respostas_$stamp.csv');
+      await CsvExporter.download(csv, 'jornada_respostas_$stamp.csv');
     } else if (tipo == 'pdf') {
       await PdfExporter.exportSummary(_all);
     }
