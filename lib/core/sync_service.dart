@@ -32,9 +32,13 @@ class SyncService {
   Future<void> _ensureAuth() async {
     if (!_firebaseReady) return;
     final auth = FirebaseAuth.instance;
-    if (auth.currentUser == null) {
+    if (auth.currentUser != null) return;
+    try {
       await auth.signInAnonymously();
       debugPrint('[SyncService] signed in anonymously: ${auth.currentUser?.uid}');
+    } catch (e) {
+      // Auth anônimo não habilitado no console ou sem internet — continua sem auth.
+      debugPrint('[SyncService] _ensureAuth skipped: $e');
     }
   }
 
